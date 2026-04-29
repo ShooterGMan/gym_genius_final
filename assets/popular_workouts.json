@@ -1,0 +1,282 @@
+[
+  {
+    "id": "pop_summer_shred",
+    "name": "Summer Shred 2026",
+    "description": "High-intensity 4-day program designed to maximize fat loss while preserving muscle. Perfect for getting beach-ready with minimal equipment.",
+    "coverImage": "assets/workout_covers/workouts/summer_shred.jpg",
+    "difficulty": "intermediate",
+    "categories": ["weightLoss", "fullBody"],
+    "equipment": ["dumbbell", "body only"],
+    "estimatedWeeks": 6,
+    "author": "GymGenius Team",
+    "routines": [
+      {
+        "id": "ss_day1",
+        "name": "Full Body HIIT",
+        "exercises": [
+          {"exerciseId": "Dumbbell_Bench_Press", "sets": 4, "reps": "12", "restSeconds": 60},
+          {"exerciseId": "Burpees", "sets": 3, "reps": "15", "restSeconds": 45},
+          {"exerciseId": "Stiff-Legged_Dumbbell_Deadlift", "sets": 3, "reps": "12", "restSeconds": 60},
+          {"exerciseId": "Mountain_Climbers", "sets": 3, "reps": "20", "restSeconds": 45},
+          {"exerciseId": "Pushups", "sets": 4, "reps": "Max", "restSeconds": 60},
+          {"exerciseId": "Plank", "sets": 3, "reps": "45 sec", "restSeconds": 30}
+        ]
+      },
+      {
+        "id": "ss_day2",
+        "name": "Lower Body Burn",
+        "exercises": [
+          {"exerciseId": "Goblet_Squat", "sets": 4, "reps": "15", "restSeconds": 60},
+          {"exerciseId": "Dumbbell_Lunges", "sets": 3, "reps": "12", "restSeconds": 45},
+          {"exerciseId": "Freehand_Jump_Squat", "sets": 3, "reps": "20", "restSeconds": 45},
+          {"exerciseId": "Standing_Dumbbell_Calf_Raise", "sets": 4, "reps": "20", "restSeconds": 30},
+          {"exerciseId": "Hanging_Leg_Raise", "sets": 3, "reps": "15", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "ss_day3",
+        "name": "Upper Body Circuit",
+        "exercises": [
+          {"exerciseId": "Pushups", "sets": 4, "reps": "Max", "restSeconds": 45},
+          {"exerciseId": "One-Arm_Dumbbell_Row", "sets": 4, "reps": "12", "restSeconds": 60},
+          {"exerciseId": "Seated_Dumbbell_Press", "sets": 3, "reps": "12", "restSeconds": 60},
+          {"exerciseId": "Alternate_Hammer_Curl", "sets": 3, "reps": "15", "restSeconds": 45},
+          {"exerciseId": "Bench_Dips", "sets": 3, "reps": "Max", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "ss_day4",
+        "name": "Cardio & Core",
+        "exercises": [
+          {"exerciseId": "Mountain_Climbers", "sets": 4, "reps": "30 sec", "restSeconds": 30},
+          {"exerciseId": "Russian_Twist", "sets": 3, "reps": "20", "restSeconds": 30},
+          {"exerciseId": "Air_Bike", "sets": 3, "reps": "20", "restSeconds": 30},
+          {"exerciseId": "Hanging_Leg_Raise", "sets": 3, "reps": "15", "restSeconds": 30},
+          {"exerciseId": "Flutter_Kicks", "sets": 3, "reps": "30 sec", "restSeconds": 30}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pop_mass_builder",
+    "name": "Mass Builder Elite",
+    "description": "Classic hypertrophy program for serious muscle growth. 5-day split focusing on progressive overload and volume.",
+    "coverImage": "assets/workout_covers/workouts/mass_builder.jpg",
+    "difficulty": "advanced",
+    "categories": ["hypertrophy", "upperLower"],
+    "equipment": ["barbell", "dumbbell", "machine", "cable"],
+    "estimatedWeeks": 8,
+    "author": "GymGenius Team",
+    "routines": [
+      {
+        "id": "mb_day1",
+        "name": "Push - Chest Focus",
+        "exercises": [
+          {"exerciseId": "Barbell_Bench_Press_-_Medium_Grip", "sets": 5, "reps": "8-10", "restSeconds": 90},
+          {"exerciseId": "Incline_Dumbbell_Press", "sets": 4, "reps": "10-12", "restSeconds": 75},
+          {"exerciseId": "Cable_Crossover", "sets": 3, "reps": "12-15", "restSeconds": 60},
+          {"exerciseId": "Seated_Dumbbell_Press", "sets": 4, "reps": "10-12", "restSeconds": 75},
+          {"exerciseId": "Side_Lateral_Raise", "sets": 3, "reps": "15-20", "restSeconds": 45},
+          {"exerciseId": "Triceps_Pushdown", "sets": 3, "reps": "12-15", "restSeconds": 60}
+        ]
+      },
+      {
+        "id": "mb_day2",
+        "name": "Pull - Back Focus",
+        "exercises": [
+          {"exerciseId": "Barbell_Deadlift", "sets": 4, "reps": "6-8", "restSeconds": 120},
+          {"exerciseId": "Pullups", "sets": 4, "reps": "8-12", "restSeconds": 90},
+          {"exerciseId": "Bent_Over_Barbell_Row", "sets": 4, "reps": "10-12", "restSeconds": 75},
+          {"exerciseId": "Wide-Grip_Lat_Pulldown", "sets": 3, "reps": "12-15", "restSeconds": 60},
+          {"exerciseId": "Face_Pull", "sets": 3, "reps": "15-20", "restSeconds": 45},
+          {"exerciseId": "Barbell_Curl", "sets": 3, "reps": "10-12", "restSeconds": 60}
+        ]
+      },
+      {
+        "id": "mb_day3",
+        "name": "Leg Day",
+        "exercises": [
+          {"exerciseId": "Barbell_Squat", "sets": 5, "reps": "8-10", "restSeconds": 120},
+          {"exerciseId": "Romanian_Deadlift", "sets": 4, "reps": "10-12", "restSeconds": 90},
+          {"exerciseId": "Leg_Press", "sets": 4, "reps": "12-15", "restSeconds": 75},
+          {"exerciseId": "Leg_Extensions", "sets": 3, "reps": "15-20", "restSeconds": 60},
+          {"exerciseId": "Standing_Calf_Raises", "sets": 4, "reps": "15-20", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "mb_day4",
+        "name": "Push - Shoulder Focus",
+        "exercises": [
+          {"exerciseId": "Standing_Military_Press", "sets": 5, "reps": "8-10", "restSeconds": 90},
+          {"exerciseId": "Arnold_Dumbbell_Press", "sets": 4, "reps": "10-12", "restSeconds": 75},
+          {"exerciseId": "Upright_Barbell_Row", "sets": 3, "reps": "12-15", "restSeconds": 60},
+          {"exerciseId": "Incline_Dumbbell_Press", "sets": 4, "reps": "10-12", "restSeconds": 75},
+          {"exerciseId": "Lying_Triceps_Press", "sets": 3, "reps": "12-15", "restSeconds": 60}
+        ]
+      },
+      {
+        "id": "mb_day5",
+        "name": "Pull - Arm Focus",
+        "exercises": [
+          {"exerciseId": "Chin-Up", "sets": 4, "reps": "8-12", "restSeconds": 90},
+          {"exerciseId": "One-Arm_Dumbbell_Row", "sets": 4, "reps": "10-12", "restSeconds": 75},
+          {"exerciseId": "Reverse_Flyes", "sets": 3, "reps": "15-20", "restSeconds": 45},
+          {"exerciseId": "Hammer_Curls", "sets": 3, "reps": "12-15", "restSeconds": 60},
+          {"exerciseId": "Preacher_Curl", "sets": 3, "reps": "12-15", "restSeconds": 60},
+          {"exerciseId": "Parallel_Bar_Dip", "sets": 3, "reps": "Max", "restSeconds": 75}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pop_home_hero",
+    "name": "Home Hero",
+    "description": "Zero equipment needed. Perfect for home workouts, travel, or anyone starting their fitness journey.",
+    "coverImage": "assets/workout_covers/workouts/home_hero.jpg",
+    "difficulty": "beginner",
+    "categories": ["endurance", "fullBody", "weightLoss"],
+    "equipment": ["body only"],
+    "estimatedWeeks": 4,
+    "author": "GymGenius Team",
+    "routines": [
+      {
+        "id": "hh_day1",
+        "name": "Full Body Basics",
+        "exercises": [
+          {"exerciseId": "Bodyweight_Squat", "sets": 3, "reps": "15", "restSeconds": 45},
+          {"exerciseId": "Pushups", "sets": 3, "reps": "Max", "restSeconds": 60},
+          {"exerciseId": "Bodyweight_Walking_Lunge", "sets": 3, "reps": "12", "restSeconds": 45},
+          {"exerciseId": "Plank", "sets": 3, "reps": "30 sec", "restSeconds": 30},
+          {"exerciseId": "Butt_Lift_Bridge", "sets": 3, "reps": "20", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "hh_day2",
+        "name": "Cardio Blast",
+        "exercises": [
+          {"exerciseId": "Mountain_Climbers", "sets": 4, "reps": "45 sec", "restSeconds": 30},
+          {"exerciseId": "Burpees", "sets": 4, "reps": "10", "restSeconds": 60},
+          {"exerciseId": "Freehand_Jump_Squat", "sets": 3, "reps": "15", "restSeconds": 45},
+          {"exerciseId": "Star_Jump", "sets": 3, "reps": "15", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "hh_day3",
+        "name": "Core & Mobility",
+        "exercises": [
+          {"exerciseId": "Crunches", "sets": 3, "reps": "20", "restSeconds": 30},
+          {"exerciseId": "Hanging_Leg_Raise", "sets": 3, "reps": "15", "restSeconds": 30},
+          {"exerciseId": "Russian_Twist", "sets": 3, "reps": "20", "restSeconds": 30},
+          {"exerciseId": "Air_Bike", "sets": 3, "reps": "20", "restSeconds": 30},
+          {"exerciseId": "Superman", "sets": 3, "reps": "15", "restSeconds": 30}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pop_strength_foundation",
+    "name": "Strength Foundation",
+    "description": "Build a solid strength base with compound movements. Perfect for beginners looking to get stronger.",
+    "coverImage": "assets/workout_covers/workouts/strength_foundation.jpg",
+    "difficulty": "beginner",
+    "categories": ["strength", "fullBody"],
+    "equipment": ["barbell", "dumbbell"],
+    "estimatedWeeks": 4,
+    "author": "GymGenius Team",
+    "routines": [
+      {
+        "id": "sf_day1",
+        "name": "Full Body A",
+        "exercises": [
+          {"exerciseId": "Barbell_Squat", "sets": 3, "reps": "8-10", "restSeconds": 90},
+          {"exerciseId": "Barbell_Bench_Press_-_Medium_Grip", "sets": 3, "reps": "8-10", "restSeconds": 90},
+          {"exerciseId": "Bent_Over_Barbell_Row", "sets": 3, "reps": "8-10", "restSeconds": 90},
+          {"exerciseId": "Standing_Dumbbell_Press", "sets": 3, "reps": "10", "restSeconds": 60},
+          {"exerciseId": "Barbell_Curl", "sets": 2, "reps": "12", "restSeconds": 45},
+          {"exerciseId": "Triceps_Pushdown", "sets": 2, "reps": "12", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "sf_day2",
+        "name": "Full Body B",
+        "exercises": [
+          {"exerciseId": "Barbell_Deadlift", "sets": 3, "reps": "6-8", "restSeconds": 120},
+          {"exerciseId": "Incline_Dumbbell_Press", "sets": 3, "reps": "10", "restSeconds": 90},
+          {"exerciseId": "Pullups", "sets": 3, "reps": "Max", "restSeconds": 90},
+          {"exerciseId": "Dumbbell_Lunges", "sets": 3, "reps": "10", "restSeconds": 60},
+          {"exerciseId": "Side_Lateral_Raise", "sets": 3, "reps": "12", "restSeconds": 45},
+          {"exerciseId": "Plank", "sets": 3, "reps": "45 sec", "restSeconds": 30}
+        ]
+      },
+      {
+        "id": "sf_day3",
+        "name": "Full Body C",
+        "exercises": [
+          {"exerciseId": "Front_Barbell_Squat", "sets": 3, "reps": "8", "restSeconds": 90},
+          {"exerciseId": "Standing_Military_Press", "sets": 3, "reps": "8-10", "restSeconds": 90},
+          {"exerciseId": "One-Arm_Dumbbell_Row", "sets": 3, "reps": "10", "restSeconds": 60},
+          {"exerciseId": "Romanian_Deadlift", "sets": 3, "reps": "10", "restSeconds": 90},
+          {"exerciseId": "Dips_-_Chest_Version", "sets": 3, "reps": "Max", "restSeconds": 60},
+          {"exerciseId": "Hanging_Leg_Raise", "sets": 3, "reps": "12", "restSeconds": 45}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pop_glute_warrior",
+    "name": "Glute Warrior",
+    "description": "Specialized program for glute development and lower body strength. Build stronger, more powerful glutes.",
+    "coverImage": "assets/workout_covers/workouts/glute_warrior.jpg",
+    "difficulty": "intermediate",
+    "categories": ["hypertrophy", "strength"],
+    "equipment": ["barbell", "dumbbell", "machine"],
+    "estimatedWeeks": 6,
+    "author": "GymGenius Team",
+    "routines": [
+      {
+        "id": "gw_day1",
+        "name": "Glute Focus A",
+        "exercises": [
+          {"exerciseId": "Barbell_Hip_Thrust", "sets": 4, "reps": "12", "restSeconds": 90},
+          {"exerciseId": "Barbell_Squat", "sets": 4, "reps": "10", "restSeconds": 90},
+          {"exerciseId": "Romanian_Deadlift", "sets": 3, "reps": "12", "restSeconds": 75},
+          {"exerciseId": "Dumbbell_Lunges", "sets": 3, "reps": "12", "restSeconds": 60},
+          {"exerciseId": "Cable_Hip_Adduction", "sets": 3, "reps": "15", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "gw_day2",
+        "name": "Upper Body",
+        "exercises": [
+          {"exerciseId": "Barbell_Bench_Press_-_Medium_Grip", "sets": 3, "reps": "10", "restSeconds": 90},
+          {"exerciseId": "Pullups", "sets": 3, "reps": "Max", "restSeconds": 90},
+          {"exerciseId": "Seated_Dumbbell_Press", "sets": 3, "reps": "10", "restSeconds": 60},
+          {"exerciseId": "Bent_Over_Barbell_Row", "sets": 3, "reps": "10", "restSeconds": 60},
+          {"exerciseId": "Side_Lateral_Raise", "sets": 3, "reps": "15", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "gw_day3",
+        "name": "Glute Focus B",
+        "exercises": [
+          {"exerciseId": "Sumo_Deadlift", "sets": 4, "reps": "8", "restSeconds": 120},
+          {"exerciseId": "Barbell_Glute_Bridge", "sets": 4, "reps": "12", "restSeconds": 90},
+          {"exerciseId": "Leg_Press", "sets": 3, "reps": "15", "restSeconds": 75},
+          {"exerciseId": "One-Legged_Cable_Kickback", "sets": 3, "reps": "15", "restSeconds": 60},
+          {"exerciseId": "Thigh_Abductor", "sets": 3, "reps": "20", "restSeconds": 45}
+        ]
+      },
+      {
+        "id": "gw_day4",
+        "name": "Full Body",
+        "exercises": [
+          {"exerciseId": "Front_Barbell_Squat", "sets": 3, "reps": "10", "restSeconds": 90},
+          {"exerciseId": "Standing_Military_Press", "sets": 3, "reps": "10", "restSeconds": 90},
+          {"exerciseId": "Wide-Grip_Lat_Pulldown", "sets": 3, "reps": "12", "restSeconds": 60},
+          {"exerciseId": "Dumbbell_Lunges", "sets": 3, "reps": "12", "restSeconds": 60},
+          {"exerciseId": "Crunches", "sets": 3, "reps": "20", "restSeconds": 30}
+        ]
+      }
+    ]
+  }
+]
