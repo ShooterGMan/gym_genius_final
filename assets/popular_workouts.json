@@ -15,7 +15,7 @@
         "name": "Full Body HIIT",
         "exercises": [
           {"exerciseId": "Dumbbell_Bench_Press", "sets": 4, "reps": "12", "restSeconds": 60},
-          {"exerciseId": "Burpees", "sets": 3, "reps": "15", "restSeconds": 45},
+          {"exerciseId": "Knee_Tuck_Jump", "sets": 3, "reps": "15", "restSeconds": 45},
           {"exerciseId": "Stiff-Legged_Dumbbell_Deadlift", "sets": 3, "reps": "12", "restSeconds": 60},
           {"exerciseId": "Mountain_Climbers", "sets": 3, "reps": "20", "restSeconds": 45},
           {"exerciseId": "Pushups", "sets": 4, "reps": "Max", "restSeconds": 60},
@@ -155,7 +155,7 @@
         "name": "Cardio Blast",
         "exercises": [
           {"exerciseId": "Mountain_Climbers", "sets": 4, "reps": "45 sec", "restSeconds": 30},
-          {"exerciseId": "Burpees", "sets": 4, "reps": "10", "restSeconds": 60},
+          {"exerciseId": "Knee_Tuck_Jump", "sets": 4, "reps": "10", "restSeconds": 60},
           {"exerciseId": "Freehand_Jump_Squat", "sets": 3, "reps": "15", "restSeconds": 45},
           {"exerciseId": "Star_Jump", "sets": 3, "reps": "15", "restSeconds": 45}
         ]

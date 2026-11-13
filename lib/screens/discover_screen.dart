@@ -356,7 +356,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   });
                 },
                 backgroundColor: AppColors.background,
-                selectedColor: AppColors.accent.withOpacity(0.2),
+                selectedColor: AppColors.accent.withValues(alpha: 0.2),
                 checkmarkColor: AppColors.accent,
                 labelStyle: TextStyle(
                   color: isSelected ? AppColors.accent : Colors.white70,
@@ -413,7 +413,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     final borderRadius = isSmallScreen ? 16.0 : 20.0;
 
     return GestureDetector(
-      onTap: () => context.push('/discover/program/${program.id}'),
+      onTap: () => context.push('/programs/discover/${program.id}'),
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -440,7 +440,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                         Icon(
                           Icons.fitness_center,
                           size: isSmallScreen ? 32 : 40,
-                          color: AppColors.accent.withOpacity(0.5),
+                          color: AppColors.accent.withValues(alpha: 0.5),
                         ),
                         SizedBox(height: isSmallScreen ? 6 : 8),
                         Padding(
@@ -448,7 +448,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                           child: Text(
                             program.name,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withValues(alpha: 0.5),
                               fontSize: isSmallScreen ? 9 : 10,
                             ),
                             textAlign: TextAlign.center,
@@ -470,8 +470,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withOpacity(0.5),
-                        Colors.black.withOpacity(0.8),
+                        Colors.black.withValues(alpha: 0.5),
+                        Colors.black.withValues(alpha: 0.8),
                       ],
                       stops: const [0.4, 0.7, 1.0],
                     ),
@@ -494,7 +494,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                         vertical: isSmallScreen ? 3 : 4,
                       ),
                       decoration: BoxDecoration(
-                        color: program.difficultyColor.withOpacity(0.9),
+                        color: program.difficultyColor.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
                       ),
                       child: Text(
@@ -564,7 +564,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             child: Icon(
               Icons.fitness_center,
               size: isSmallScreen ? 36 : 48,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
           ),
           SizedBox(height: isSmallScreen ? 20 : 24),
@@ -580,7 +580,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           Text(
             "Try adjusting your filters",
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: isSmallScreen ? 12 : 14,
             ),
           ),

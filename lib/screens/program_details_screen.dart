@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/program_provider.dart';
 import '../providers/exercise_provider.dart';
-import '../providers/active_workout_provider.dart';
 import '../models/exercise.dart';
 import '../models/program.dart';
 import '../theme/app_theme.dart';
+import '../widgets/workout_launcher.dart';
 
 class ProgramDetailsScreen extends ConsumerWidget {
   final String programId;
@@ -17,7 +17,6 @@ class ProgramDetailsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final programState = ref.watch(programProvider);
     final notifier = ref.read(programProvider.notifier);
-    final activeNotifier = ref.read(activeWorkoutProvider.notifier);
     final allExercises = ref.watch(exercisesProvider).value ?? [];
 
     final program = programState.allPrograms.firstWhere(
@@ -37,9 +36,13 @@ class ProgramDetailsScreen extends ConsumerWidget {
     if (program.id == '0') {
       return Scaffold(
         backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+        ),
         body: const Center(
-          child:
-              Text("Program not found", style: TextStyle(color: Colors.white)),
+          child: Text("This program no longer exists.",
+              style: TextStyle(color: Colors.white70)),
         ),
       );
     }
@@ -76,13 +79,16 @@ class ProgramDetailsScreen extends ConsumerWidget {
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.asset(
-                        program.displayImage,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: AppColors.surface,
-                          child: const Icon(Icons.fitness_center,
-                              size: 48, color: Colors.white24),
+                      Hero(
+                        tag: 'program_${program.id}',
+                        child: Image.asset(
+                          program.displayImage,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: AppColors.surface,
+                            child: const Icon(Icons.fitness_center,
+                                size: 48, color: Colors.white24),
+                          ),
                         ),
                       ),
                       Container(
@@ -160,7 +166,7 @@ class ProgramDetailsScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(28),
                           border: Border.all(
                             color: isNextOnDashboard
-                                ? AppColors.accent.withOpacity(0.3)
+                                ? AppColors.accent.withValues(alpha: 0.3)
                                 : Colors.white10,
                           ),
                         ),
@@ -173,7 +179,7 @@ class ProgramDetailsScreen extends ConsumerWidget {
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
-                                    color: AppColors.accent.withOpacity(0.1),
+                                    color: AppColors.accent.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Center(
@@ -198,19 +204,20 @@ class ProgramDetailsScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 IconButton(
-                                  onPressed: () {
-                                    HapticFeedback.mediumImpact();
-                                    activeNotifier.startEmptyWorkout();
-                                    for (var exercise in routine.exercises) {
-                                      activeNotifier.addExercise(
-                                        exercise.exerciseId,
-                                        setsCount: exercise.sets,
-                                        repsHint: exercise.reps,
-                                      );
-                                    }
-                                    notifier.setCurrentRoutineIndex(index);
-                                    context.push('/workout');
-                                  },
+                                  tooltip: 'Start ${routine.name}',
+                                  onPressed: routine.exercises.isEmpty
+                                      ? null
+                                      : () => launchWorkout(
+                                            context,
+                                            ref,
+                                            routine: routine,
+                                            onStarted: () {
+                                              // Make this the active program
+                                              // and advance past this day.
+                                              notifier.setActiveProgram(program.id);
+                                              notifier.setCurrentRoutineIndex(index + 1);
+                                            },
+                                          ),
                                   icon: const Icon(
                                     Icons.play_circle_fill,
                                     color: AppColors.accent,
@@ -291,7 +298,7 @@ class ProgramDetailsScreen extends ConsumerWidget {
                   end: Alignment.topCenter,
                   colors: [
                     AppColors.background,
-                    AppColors.background.withOpacity(0),
+                    AppColors.background.withValues(alpha: 0),
                   ],
                   stops: const [0.6, 1.0],
                 ),
@@ -407,7 +414,7 @@ class ProgramDetailsScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.1),
+                color: AppColors.accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(

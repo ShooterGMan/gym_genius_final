@@ -10,7 +10,11 @@ import '../models/exercise.dart';
 import '../theme/app_theme.dart';
 
 class WorkoutExerciseSelectionScreen extends ConsumerStatefulWidget {
-  const WorkoutExerciseSelectionScreen({super.key});
+  /// When true the screen only returns the selected exercise id via `pop`
+  /// and does not touch the active workout.
+  final bool pickOnly;
+
+  const WorkoutExerciseSelectionScreen({super.key, this.pickOnly = false});
 
   @override
   ConsumerState<WorkoutExerciseSelectionScreen> createState() =>
@@ -308,7 +312,7 @@ class _WorkoutExerciseSelectionScreenState
                         final isFav = ref.watch(favoritesProvider).exerciseIds.contains(ex.id);
                         
                         return GestureDetector(
-                          onTap: () => context.push('/library/exercise/${ex.id}'),
+                          onTap: () => context.push('/exercise/${ex.id}'),
                           child: Container(
                             margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
                             padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
@@ -372,9 +376,11 @@ class _WorkoutExerciseSelectionScreenState
                                       size: isSmallScreen ? 24 : 28),
                                   onPressed: () {
                                     HapticFeedback.mediumImpact();
-                                    ref
-                                        .read(activeWorkoutProvider.notifier)
-                                        .addExercise(ex.id);
+                                    if (!widget.pickOnly) {
+                                      ref
+                                          .read(activeWorkoutProvider.notifier)
+                                          .addExercise(ex.id);
+                                    }
                                     context.pop(ex.id);
                                   },
                                 )

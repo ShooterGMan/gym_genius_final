@@ -229,6 +229,7 @@ class Program {
         isCustom: isCustom ?? this.isCustom,
         isImported: isImported ?? this.isImported,
         importedFrom: importedFrom ?? this.importedFrom,
+        createdAt: createdAt,
         updatedAt: DateTime.now(),
       );
 

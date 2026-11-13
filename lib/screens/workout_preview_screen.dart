@@ -120,7 +120,7 @@ class WorkoutPreviewScreen extends ConsumerWidget {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    AppColors.background.withOpacity(0.8),
+                    AppColors.background.withValues(alpha: 0.8),
                     AppColors.background,
                   ],
                   stops: const [0.6, 0.8, 1.0],
@@ -330,7 +330,7 @@ class WorkoutPreviewScreen extends ConsumerWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.1),
+                  color: AppColors.accent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
@@ -481,7 +481,7 @@ class WorkoutPreviewScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.1),
+                color: AppColors.accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -519,7 +519,7 @@ class WorkoutPreviewScreen extends ConsumerWidget {
             end: Alignment.topCenter,
             colors: [
               AppColors.background,
-              AppColors.background.withOpacity(0.8),
+              AppColors.background.withValues(alpha: 0.8),
               Colors.transparent,
             ],
             stops: const [0.6, 0.8, 1.0],
@@ -545,6 +545,7 @@ class WorkoutPreviewScreen extends ConsumerWidget {
                         .importProgram(program.id);
 
                     if (context.mounted) {
+                      final router = GoRouter.of(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content:
@@ -555,12 +556,12 @@ class WorkoutPreviewScreen extends ConsumerWidget {
                             label: 'VIEW',
                             textColor: Colors.black,
                             onPressed: () {
-                              context.go('/programs');
+                              router.go('/programs');
                             },
                           ),
                         ),
                       );
-                      context.pop();
+                      router.pop();
                     }
                   } catch (e) {
                     if (context.mounted) {

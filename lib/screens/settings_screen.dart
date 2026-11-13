@@ -3,7 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/settings_provider.dart';
 import '../providers/tracker_provider.dart';
+import '../providers/program_provider.dart';
+import '../providers/pr_tracker_provider.dart';
+import '../providers/favorites_provider.dart';
+import '../providers/exercise_provider.dart';
+import '../providers/active_workout_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/data_actions.dart';
+import '../services/photo_storage.dart';
+import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -22,16 +30,27 @@ class SettingsScreen extends ConsumerWidget {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
-                child: Text(
-                  "SETTINGS",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isSmallScreen ? 22 : 24,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
+                padding: EdgeInsets.fromLTRB(
+                    isSmallScreen ? 4 : 8, isSmallScreen ? 8 : 12, 16, 8),
+                child: Row(children: [
+                  IconButton(
+                    tooltip: 'Back',
+                    icon: const Icon(Icons.chevron_left,
+                        color: Colors.white, size: 32),
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/dashboard'),
                   ),
-                ),
+                  Text(
+                    "SETTINGS",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isSmallScreen ? 22 : 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ]),
               ),
             ),
             SliverPadding(
@@ -87,7 +106,38 @@ class SettingsScreen extends ConsumerWidget {
                   const SizedBox(height: 32),
 
                   // DATA MANAGEMENT
-                  _buildSectionHeader("DATA MANAGEMENT"),
+                  _buildSectionHeader("YOUR DATA"),
+                  Builder(
+                    builder: (btnContext) => _buildSettingCard(
+                      icon: Icons.table_chart_outlined,
+                      title: "Export to Excel",
+                      subtitle: "Every set, PR and metric as an .xlsx file",
+                      trailing: const Icon(Icons.ios_share, color: Colors.white24),
+                      onTap: () => DataActions.exportExcel(btnContext, ref),
+                      isSmallScreen: isSmallScreen,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Builder(
+                    builder: (btnContext) => _buildSettingCard(
+                      icon: Icons.cloud_upload_outlined,
+                      title: "Back up data",
+                      subtitle: "Save a backup file to Drive, iCloud, email…",
+                      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+                      onTap: () => DataActions.backup(btnContext),
+                      isSmallScreen: isSmallScreen,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildSettingCard(
+                    icon: Icons.settings_backup_restore,
+                    title: "Restore from backup",
+                    subtitle: "Replaces the data on this device",
+                    trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+                    onTap: () => DataActions.restore(context, ref),
+                    isSmallScreen: isSmallScreen,
+                  ),
+                  const SizedBox(height: 12),
                   _buildSettingCard(
                     icon: Icons.delete_outline,
                     title: "Clear All Data",
@@ -112,7 +162,7 @@ class SettingsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(isSmallScreen ? 20 : 24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
         children: [
@@ -123,9 +173,9 @@ class SettingsScreen extends ConsumerWidget {
                 height: isSmallScreen ? 56 : 64,
                 width: isSmallScreen ? 56 : 64,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.1),
+                  color: AppColors.accent.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
                 ),
                 child: Center(
                   child: Text(
@@ -330,7 +380,7 @@ class SettingsScreen extends ConsumerWidget {
                     Expanded(
                       child: TextField(
                         controller: heightController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         style: const TextStyle(color: Colors.white),
                         decoration: _inputDecoration('Height (cm)'),
                       ),
@@ -339,7 +389,7 @@ class SettingsScreen extends ConsumerWidget {
                     Expanded(
                       child: TextField(
                         controller: weightController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         style: const TextStyle(color: Colors.white),
                         decoration: _inputDecoration('Weight (kg)'),
                       ),
@@ -417,8 +467,8 @@ class SettingsScreen extends ConsumerWidget {
                 final updatedProfile = UserProfile(
                   name: nameController.text.trim(),
                   age: int.tryParse(ageController.text) ?? profile.age,
-                  height: double.tryParse(heightController.text) ?? profile.height,
-                  weight: double.tryParse(weightController.text) ?? profile.weight,
+                  height: double.tryParse(heightController.text.replaceAll(",", ".")) ?? profile.height,
+                  weight: double.tryParse(weightController.text.replaceAll(",", ".")) ?? profile.weight,
                   goal: selectedGoal,
                   experienceLevel: selectedLevel,
                   workoutsPerWeek: workoutsPerWeek,
@@ -468,7 +518,7 @@ class SettingsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(isSmallScreen ? 20 : 24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Wrap(
         spacing: 8,
@@ -481,7 +531,7 @@ class SettingsScreen extends ConsumerWidget {
             selected: isSelected,
             onSelected: (_) => ref.read(settingsProvider.notifier).toggleEquipment(eq.toLowerCase()),
             backgroundColor: AppColors.background,
-            selectedColor: AppColors.accent.withOpacity(0.2),
+            selectedColor: AppColors.accent.withValues(alpha: 0.2),
             checkmarkColor: AppColors.accent,
             labelStyle: TextStyle(
               color: isSelected ? AppColors.accent : Colors.white70,
@@ -525,7 +575,7 @@ class SettingsScreen extends ConsumerWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(isSmallScreen ? 20 : 24),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: Row(
           children: [
@@ -535,7 +585,7 @@ class SettingsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                   color: Colors.black26,
                   borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12)),
-              child: Icon(icon, color: titleColor.withOpacity(0.7), size: isSmallScreen ? 18 : 20),
+              child: Icon(icon, color: titleColor.withValues(alpha: 0.7), size: isSmallScreen ? 18 : 20),
             ),
             SizedBox(width: isSmallScreen ? 12 : 16),
             Expanded(
@@ -573,7 +623,7 @@ class SettingsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(isSmallScreen ? 20 : 24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -629,7 +679,7 @@ class SettingsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(isSmallScreen ? 20 : 24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -720,7 +770,7 @@ class SettingsScreen extends ConsumerWidget {
         title: const Text("Clear All Data?",
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(
-            "This will permanently delete your workout history, metrics, and custom programs. This cannot be undone.",
+            "This permanently deletes your workout history, body metrics, progress photos, programs, personal records, favorites and custom exercises. This cannot be undone.",
             style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
@@ -730,9 +780,17 @@ class SettingsScreen extends ConsumerWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
+              ref.read(activeWorkoutProvider.notifier).discardWorkout();
               await ref.read(trackerProvider.notifier).clearAllData();
-              Navigator.pop(context);
+              try {
+                await (await PhotoStorage.directory()).delete(recursive: true);
+              } catch (_) {}
+              await ref.read(programProvider.notifier).debugClearAllData();
+              await ref.read(manualPRsProvider.notifier).clearAll();
+              await ref.read(favoritesProvider.notifier).clearAllFavorites();
+              await ref.read(exercisesProvider.notifier).clearCustomExercises();
               if (context.mounted) {
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text("All data cleared."),

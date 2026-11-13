@@ -1,12 +1,15 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../providers/tracker_provider.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/exercise.dart';
 import '../screens/pr_tracker_screen.dart';
 import '../theme/app_theme.dart';
+import '../widgets/data_actions.dart';
+import '../widgets/progress_photos_tab.dart';
 
 class TrackerScreen extends ConsumerStatefulWidget {
   const TrackerScreen({super.key});
@@ -21,7 +24,11 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+    // Only the "Progress" tab's FAB (add body metric) makes sense per tab.
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -137,7 +144,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'TRACKER',
+                    'PROGRESS',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: isSmallScreen ? 22 : 24,
@@ -145,12 +152,25 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                       letterSpacing: -0.5,
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.bar_chart,
-                        color: AppColors.accent,
-                        size: isSmallScreen ? 22 : 24),
-                    onPressed: () => _showStatsBottomSheet(context, tracker),
-                  ),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Builder(
+                      builder: (btnContext) => IconButton(
+                        tooltip: 'Export to Excel',
+                        icon: Icon(Icons.table_chart_outlined,
+                            color: AppColors.accent,
+                            size: isSmallScreen ? 22 : 24),
+                        onPressed: () =>
+                            DataActions.exportExcel(btnContext, ref),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Stats',
+                      icon: Icon(Icons.bar_chart,
+                          color: AppColors.accent,
+                          size: isSmallScreen ? 22 : 24),
+                      onPressed: () => _showStatsBottomSheet(context, tracker),
+                    ),
+                  ]),
                 ],
               ),
             ),
@@ -205,10 +225,13 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                 fontSize: isSmallScreen ? 10 : 12,
                 letterSpacing: 2,
               ),
+              isScrollable: isSmallScreen,
+              tabAlignment: isSmallScreen ? TabAlignment.start : null,
               tabs: const [
                 Tab(text: "ACTIVITY"),
-                Tab(text: "PROGRESS"),
+                Tab(text: "BODY"),
                 Tab(text: "RECORDS"),
+                Tab(text: "PHOTOS"),
               ],
             ),
 
@@ -219,13 +242,17 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                   _buildActivityTab(tracker.history, isSmallScreen),
                   _buildProgressTab(tracker, bodyParts, isSmallScreen),
                   const PRTrackerScreen(),
+                  const ProgressPhotosTab(),
                 ],
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: _tabController.index != 1
+          ? null
+          : FloatingActionButton(
+        tooltip: 'Log body weight',
         onPressed: () => _showAddMetricDialog(),
         backgroundColor: AppColors.accent,
         child: Icon(Icons.add, color: Colors.black, size: isSmallScreen ? 20 : 24),
@@ -326,7 +353,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white24))))
         else
-          ...history.take(5).map((w) => _buildHistoryCard(w, isSmallScreen)).toList(),
+          ...history.take(5).map((w) => _buildHistoryCard(w, isSmallScreen)),
       ],
     );
   }
@@ -373,7 +400,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: isToday
-                        ? AppColors.accent.withOpacity(0.1)
+                        ? AppColors.accent.withValues(alpha: 0.1)
                         : Colors.transparent,
                     shape: BoxShape.circle,
                   ),
@@ -448,14 +475,14 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(isSmallScreen ? 18 : 24),
-              border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+              border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: _buildMetricDisplay(
                     'Weight',
-                    '${state.metrics.first.weight} kg',
+                    '${state.metrics.first.weight} ${ref.watch(settingsProvider).weightUnit}',
                     Icons.monitor_weight,
                     isSmallScreen,
                   ),
@@ -475,6 +502,46 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
             ),
           ),
           SizedBox(height: isSmallScreen ? 14 : 16),
+          if (state.metrics.length > 1) ...[
+            Container(
+              height: 200,
+              padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(isSmallScreen ? 18 : 24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              ),
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(show: false),
+                  titlesData: const FlTitlesData(
+                    bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: state.metrics.reversed.toList().asMap().entries.map((e) {
+                        return FlSpot(e.key.toDouble(), double.tryParse(e.value.weight) ?? 0.0);
+                      }).toList(),
+                      isCurved: true,
+                      color: AppColors.accent,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: const FlDotData(show: true),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: AppColors.accent.withValues(alpha: 0.2),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 14 : 16),
+          ],
           Text("HISTORY",
               style: TextStyle(
                   color: AppColors.textSecondary,
@@ -488,7 +555,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(isSmallScreen ? 14 : 16),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -503,7 +570,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                     Row(
                       children: [
                         Text(
-                          '${metric.weight} kg',
+                          '${metric.weight} ${ref.watch(settingsProvider).weightUnit}',
                           style: TextStyle(
                               color: AppColors.accent,
                               fontWeight: FontWeight.bold,
@@ -533,89 +600,70 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
     final totalExercises = bodyParts.values.fold<int>(0, (sum, v) => sum + v);
 
     return Container(
+      height: 320,
       padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(isSmallScreen ? 18 : 24),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: [
-          if (totalExercises > 0)
-            Padding(
-              padding: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
-              child: Row(
+      child: totalExercises == 0
+          ? Center(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.fitness_center,
-                      color: AppColors.accent, size: isSmallScreen ? 14 : 16),
-                  SizedBox(width: isSmallScreen ? 6 : 8),
-                  Text(
-                    "$totalExercises total exercises tracked",
-                    style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: isSmallScreen ? 11 : 12),
-                  ),
+                  Icon(Icons.fitness_center, color: Colors.white24, size: 48),
+                  SizedBox(height: 16),
+                  Text("No exercises tracked yet",
+                      style: TextStyle(color: Colors.white24)),
                 ],
               ),
-            ),
-          ..._allMuscleGroups.map((muscle) {
-            final count = bodyParts[muscle] ?? 0;
-            final percentage = maxCount > 0 ? (count / maxCount) : 0.0;
-            final personalPercentage =
-                totalExercises > 0 ? ((count / totalExercises) * 100) : 0.0;
-
-            return Padding(
-              padding: EdgeInsets.only(bottom: isSmallScreen ? 6 : 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: isSmallScreen ? 65 : 80,
-                    child: Text(
-                      muscle,
-                      style: TextStyle(
-                        color: count > 0 ? Colors.white : Colors.white38,
-                        fontSize: isSmallScreen ? 11 : 12,
-                        fontWeight: count > 0 ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: percentage,
-                        backgroundColor: Colors.white10,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          percentage > 0.7
-                              ? AppColors.accent
-                              : percentage > 0.3
-                                  ? AppColors.accent.withOpacity(0.6)
-                                  : AppColors.accent.withOpacity(0.3),
+            )
+          : Column(
+              children: [
+                Text(
+                  "$totalExercises total exercises tracked",
+                  style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: isSmallScreen ? 11 : 12),
+                ),
+                Expanded(
+                  child: RadarChart(
+                    RadarChartData(
+                      dataSets: [
+                        RadarDataSet(
+                          fillColor: AppColors.accent.withValues(alpha: 0.2),
+                          borderColor: AppColors.accent,
+                          entryRadius: 3,
+                          dataEntries: _allMuscleGroups.map((muscle) {
+                            return RadarEntry(
+                                value: (bodyParts[muscle] ?? 0).toDouble());
+                          }).toList(),
+                          borderWidth: 2,
                         ),
-                        minHeight: isSmallScreen ? 6 : 8,
-                      ),
+                      ],
+                      radarBackgroundColor: Colors.transparent,
+                      borderData: FlBorderData(show: false),
+                      radarBorderData: const BorderSide(color: Colors.white10),
+                      titleTextStyle: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: isSmallScreen ? 9 : 10),
+                      getTitle: (index, angle) {
+                        return RadarChartTitle(
+                          text: _allMuscleGroups[index],
+                        );
+                      },
+                      tickCount: 3,
+                      ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 10),
+                      tickBorderData: const BorderSide(color: Colors.white10),
+                      gridBorderData: const BorderSide(color: Colors.white10, width: 2),
                     ),
+                    swapAnimationDuration: const Duration(milliseconds: 150),
+                    swapAnimationCurve: Curves.linear,
                   ),
-                  SizedBox(width: isSmallScreen ? 6 : 8),
-                  SizedBox(
-                    width: isSmallScreen ? 38 : 45,
-                    child: Text(
-                      '${personalPercentage.toStringAsFixed(0)}%',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        color: count > 0 ? AppColors.accent : Colors.white24,
-                        fontSize: isSmallScreen ? 10 : 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -627,7 +675,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Row(
             children: [
@@ -635,7 +683,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                 height: isSmallScreen ? 40 : 48,
                 width: isSmallScreen ? 40 : 48,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.1),
+                  color: AppColors.accent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 12),
                 ),
                 child: Icon(Icons.fitness_center,
@@ -749,10 +797,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
           children: [
             TextField(
               controller: weightController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                labelText: 'Weight (kg)',
+                labelText: 'Weight (${ref.read(settingsProvider).weightUnit})',
                 labelStyle: const TextStyle(color: AppColors.textSecondary),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -767,7 +815,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
             const SizedBox(height: 16),
             TextField(
               controller: bfController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Body Fat % (optional)',
@@ -795,9 +843,9 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () {
-              final weight = double.tryParse(weightController.text);
+              final weight = double.tryParse(weightController.text.replaceAll(",", "."));
               if (weight != null) {
-                final bf = double.tryParse(bfController.text);
+                final bf = double.tryParse(bfController.text.replaceAll(",", "."));
                 ref.read(trackerProvider.notifier).addBodyMetric(weight, bodyFat: bf);
                 Navigator.pop(context);
               }
@@ -1001,9 +1049,9 @@ class _FullCalendarSheetState extends State<_FullCalendarSheet> {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isToday
-                ? AppColors.accent.withOpacity(0.2)
+                ? AppColors.accent.withValues(alpha: 0.2)
                 : hasWorkout
-                    ? AppColors.accent.withOpacity(0.1)
+                    ? AppColors.accent.withValues(alpha: 0.1)
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: isToday ? Border.all(color: AppColors.accent, width: 1.5) : null,
@@ -1151,14 +1199,14 @@ class _FullCalendarSheetState extends State<_FullCalendarSheet> {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: Row(
           children: [
             Container(
               height: 48, width: 48,
               decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.1),
+                color: AppColors.accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.fitness_center, color: AppColors.accent, size: 24),

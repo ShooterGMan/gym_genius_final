@@ -332,7 +332,7 @@ class _ExerciseListScreenState extends ConsumerState<ExerciseListScreen> {
                             setState(() => _activeFilter = selected ? filter : 'All');
                           },
                           backgroundColor: AppColors.background,
-                          selectedColor: AppColors.accent.withOpacity(0.2),
+                          selectedColor: AppColors.accent.withValues(alpha: 0.2),
                           checkmarkColor: AppColors.accent,
                           labelStyle: TextStyle(
                             color: isActive ? AppColors.accent : Colors.white70,
@@ -364,7 +364,7 @@ class _ExerciseListScreenState extends ConsumerState<ExerciseListScreen> {
                             setState(() => _activeEquipment = selected ? filter : 'All');
                           },
                           backgroundColor: AppColors.background,
-                          selectedColor: AppColors.accent.withOpacity(0.2),
+                          selectedColor: AppColors.accent.withValues(alpha: 0.2),
                           checkmarkColor: AppColors.accent,
                           labelStyle: TextStyle(
                             color: isActive ? AppColors.accent : Colors.white70,
@@ -396,7 +396,7 @@ class _ExerciseListScreenState extends ConsumerState<ExerciseListScreen> {
                             setState(() => _activeDifficulty = selected ? filter : 'All');
                           },
                           backgroundColor: AppColors.background,
-                          selectedColor: _getDifficultyColor(filter).withOpacity(0.2),
+                          selectedColor: _getDifficultyColor(filter).withValues(alpha: 0.2),
                           checkmarkColor: _getDifficultyColor(filter),
                           labelStyle: TextStyle(
                             color: isActive ? _getDifficultyColor(filter) : Colors.white70,
@@ -434,7 +434,7 @@ class _ExerciseListScreenState extends ConsumerState<ExerciseListScreen> {
                   Text(
                     "EXERCISES",
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                       fontSize: isSmallScreen ? 10 : 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
@@ -473,7 +473,7 @@ class _ExerciseListScreenState extends ConsumerState<ExerciseListScreen> {
                                 ? 'No favorite exercises yet'
                                 : 'No exercises found',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
+                              color: Colors.white.withValues(alpha: 0.7),
                               fontSize: isSmallScreen ? 14 : 16,
                             ),
                           ),
@@ -483,7 +483,7 @@ class _ExerciseListScreenState extends ConsumerState<ExerciseListScreen> {
                                 ? 'Tap the star icon on exercises to add them here'
                                 : 'Try adjusting your filters',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.4),
+                              color: Colors.white.withValues(alpha: 0.4),
                               fontSize: isSmallScreen ? 11 : 13,
                             ),
                           ),

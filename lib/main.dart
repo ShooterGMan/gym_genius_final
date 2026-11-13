@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'router/app_router.dart';
+import 'screens/onboarding_screen.dart';
 import 'providers/active_workout_provider.dart';
 import 'services/image_cache_service.dart';
 import 'theme/app_theme.dart';
@@ -17,7 +19,16 @@ void main() async {
   // Preload images in the background - don't block startup
   _preloadAppImages();
 
-  runApp(const ProviderScope(child: MyApp()));
+  // Existing users (who already have a profile or history) skip onboarding.
+  final prefs = await SharedPreferences.getInstance();
+  final needsOnboarding = !(prefs.getBool(onboardingDoneKey) ?? false) &&
+      !prefs.containsKey('user_profile') &&
+      !prefs.containsKey('gym_history_v1');
+
+  runApp(ProviderScope(
+    overrides: [needsOnboardingProvider.overrideWithValue(needsOnboarding)],
+    child: const MyApp(),
+  ));
 }
 
 void _preloadAppImages() {

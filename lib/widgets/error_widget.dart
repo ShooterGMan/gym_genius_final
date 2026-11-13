@@ -21,7 +21,7 @@ class AppErrorWidget extends StatelessWidget {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
+              color: Colors.red.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -45,7 +45,7 @@ class AppErrorWidget extends StatelessWidget {
             child: Text(
               message,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -168,7 +168,7 @@ class EmptyStateWidget extends StatelessWidget {
             child: Icon(
               icon,
               size: 48,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
           ),
           const SizedBox(height: 24),
@@ -186,7 +186,7 @@ class EmptyStateWidget extends StatelessWidget {
             child: Text(
               message,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,

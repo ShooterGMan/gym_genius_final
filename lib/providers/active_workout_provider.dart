@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../models/program.dart';
 import '../services/notification_service.dart';
 import '../providers/settings_provider.dart';
 import '../providers/tracker_provider.dart';
@@ -14,21 +18,100 @@ enum LogMode {
   timeAndDistance,
 }
 
+enum SetType { normal, warmup, drop, failure }
+
+extension SetTypeLabel on SetType {
+  String get label {
+    switch (this) {
+      case SetType.normal:
+        return 'Normal';
+      case SetType.warmup:
+        return 'Warm-up';
+      case SetType.drop:
+        return 'Drop set';
+      case SetType.failure:
+        return 'To failure';
+    }
+  }
+
+  /// Short marker shown instead of the set number ('' for normal sets).
+  String get marker {
+    switch (this) {
+      case SetType.normal:
+        return '';
+      case SetType.warmup:
+        return 'W';
+      case SetType.drop:
+        return 'D';
+      case SetType.failure:
+        return 'F';
+    }
+  }
+}
+
 class LiveSet {
   final String id;
   String weight;
   String reps;
   bool isCompleted;
+  final SetType type;
+
+  /// Rate of perceived exertion (6-10, half steps). Optional.
+  final double? rpe;
 
   LiveSet({
     required this.id,
     this.weight = '',
     this.reps = '',
     this.isCompleted = false,
+    this.type = SetType.normal,
+    this.rpe,
   });
 
-  LiveSet copy() =>
-      LiveSet(id: id, weight: weight, reps: reps, isCompleted: isCompleted);
+  /// Warm-up sets never count toward volume or personal records.
+  bool get isWorking => type != SetType.warmup;
+
+  LiveSet copy() => copyWith();
+
+  LiveSet copyWith({
+    String? weight,
+    String? reps,
+    bool? isCompleted,
+    SetType? type,
+    double? rpe,
+    bool clearRpe = false,
+  }) =>
+      LiveSet(
+        id: id,
+        weight: weight ?? this.weight,
+        reps: reps ?? this.reps,
+        isCompleted: isCompleted ?? this.isCompleted,
+        type: type ?? this.type,
+        rpe: clearRpe ? null : (rpe ?? this.rpe),
+      );
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'w': weight,
+        'r': reps,
+        'c': isCompleted,
+        if (type != SetType.normal) 't': type.index,
+        if (rpe != null) 'rpe': rpe,
+      };
+
+  static SetType typeFromIndex(dynamic v) {
+    final i = v is int ? v : 0;
+    return SetType.values[i.clamp(0, SetType.values.length - 1)];
+  }
+
+  factory LiveSet.fromMap(Map<String, dynamic> map) => LiveSet(
+        id: map['id'] ?? const Uuid().v4(),
+        weight: map['w']?.toString() ?? '',
+        reps: map['r']?.toString() ?? '',
+        isCompleted: map['c'] ?? false,
+        type: typeFromIndex(map['t']),
+        rpe: (map['rpe'] as num?)?.toDouble(),
+      );
 }
 
 class WorkoutExerciseLive {
@@ -37,28 +120,72 @@ class WorkoutExerciseLive {
   final List<LiveSet> sets;
   final LogMode logMode;
 
+  /// Target from the program (e.g. "8-12", "Max", "45 sec"). Shown as a hint.
+  final String? targetReps;
+
+  /// Per-exercise rest from the program. Falls back to the user's default.
+  final int? restSeconds;
+
+  /// Exercises sharing the same id are performed back-to-back (superset).
+  final String? supersetId;
+
   WorkoutExerciseLive({
     required this.id,
     required this.exerciseId,
     required this.sets,
     this.logMode = LogMode.weightAndReps,
+    this.targetReps,
+    this.restSeconds,
+    this.supersetId,
   });
 
-  WorkoutExerciseLive copyWith({List<LiveSet>? sets, LogMode? logMode}) {
+  WorkoutExerciseLive copyWith({
+    List<LiveSet>? sets,
+    LogMode? logMode,
+    String? supersetId,
+    bool clearSuperset = false,
+  }) {
     return WorkoutExerciseLive(
       id: id,
       exerciseId: exerciseId,
       sets: sets ?? this.sets,
       logMode: logMode ?? this.logMode,
+      targetReps: targetReps,
+      restSeconds: restSeconds,
+      supersetId: clearSuperset ? null : (supersetId ?? this.supersetId),
     );
   }
 
-  WorkoutExerciseLive copy() => WorkoutExerciseLive(
-        id: id,
-        exerciseId: exerciseId,
-        sets: sets.map((s) => s.copy()).toList(),
-        logMode: logMode,
-      );
+  WorkoutExerciseLive copy() =>
+      copyWith(sets: sets.map((s) => s.copy()).toList());
+
+  /// Whether weight x reps volume / PRs make sense for this exercise.
+  bool get tracksWeight => logMode == LogMode.weightAndReps;
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'exId': exerciseId,
+        'mode': logMode.index,
+        'target': targetReps,
+        'rest': restSeconds,
+        'ss': supersetId,
+        'sets': sets.map((s) => s.toMap()).toList(),
+      };
+
+  factory WorkoutExerciseLive.fromMap(Map<String, dynamic> map) {
+    final modeIdx = map['mode'] is int ? map['mode'] as int : 0;
+    return WorkoutExerciseLive(
+      id: map['id'] ?? const Uuid().v4(),
+      exerciseId: map['exId'] ?? '',
+      logMode: LogMode.values[modeIdx.clamp(0, LogMode.values.length - 1)],
+      targetReps: map['target'],
+      restSeconds: map['rest'],
+      supersetId: map['ss'],
+      sets: (map['sets'] as List? ?? [])
+          .map((s) => LiveSet.fromMap(Map<String, dynamic>.from(s)))
+          .toList(),
+    );
+  }
 }
 
 class ActiveWorkoutState {
@@ -69,6 +196,7 @@ class ActiveWorkoutState {
   final int restSecondsTotal;
   final List<WorkoutExerciseLive> routine;
   final DateTime? startTime;
+  final String? name;
 
   ActiveWorkoutState({
     this.isActive = false,
@@ -78,6 +206,7 @@ class ActiveWorkoutState {
     this.restSecondsTotal = 90,
     this.routine = const [],
     this.startTime,
+    this.name,
   });
 
   ActiveWorkoutState copyWith({
@@ -88,6 +217,7 @@ class ActiveWorkoutState {
     int? restSecondsTotal,
     List<WorkoutExerciseLive>? routine,
     DateTime? startTime,
+    String? name,
   }) {
     return ActiveWorkoutState(
       isActive: isActive ?? this.isActive,
@@ -97,8 +227,12 @@ class ActiveWorkoutState {
       restSecondsTotal: restSecondsTotal ?? this.restSecondsTotal,
       routine: routine ?? this.routine,
       startTime: startTime ?? this.startTime,
+      name: name ?? this.name,
     );
   }
+
+  int get completedSetCount => routine.fold(
+      0, (sum, ex) => sum + ex.sets.where((s) => s.isCompleted).length);
 }
 
 final activeWorkoutProvider =
@@ -109,105 +243,163 @@ final activeWorkoutProvider =
 class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState> {
   Timer? _workoutTimer;
   Timer? _restTimer;
+  Timer? _persistDebounce;
+
+  /// Wall-clock moment the current rest period ends. Timers are derived from
+  /// wall-clock time so they stay correct when the app is backgrounded or
+  /// the OS throttles Dart timers.
+  DateTime? _restEnd;
+
   final _uuid = const Uuid();
   final _notificationService = NotificationService();
-  static const String _stateKey = 'active_workout_state_v1';
+  static const String _sessionKey = 'active_workout_session_v2';
+
+  // Legacy keys (v1 only stored timers, never the exercises).
+  static const _legacyKeys = [
+    'active_workout_state_v1',
+    'active_workout_elapsed',
+    'active_workout_resting',
+    'active_workout_rest',
+    'active_workout_rest_total',
+    'active_workout_start',
+  ];
 
   @override
-  ActiveWorkoutState build() => ActiveWorkoutState();
+  ActiveWorkoutState build() {
+    ref.onDispose(() {
+      _workoutTimer?.cancel();
+      _restTimer?.cancel();
+      _persistDebounce?.cancel();
+    });
+    return ActiveWorkoutState();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Persistence
+  // ---------------------------------------------------------------------------
 
   Future<void> restoreState() async {
     final prefs = await SharedPreferences.getInstance();
-    final startTimeStr = prefs.getString('active_workout_start');
+    final raw = prefs.getString(_sessionKey);
+    if (raw == null) {
+      // Clean up the old timer-only format; it can't be restored meaningfully.
+      for (final k in _legacyKeys) {
+        prefs.remove(k);
+      }
+      return;
+    }
 
-    if (startTimeStr != null) {
-      final startTime = DateTime.parse(startTimeStr);
-      final actualElapsed = DateTime.now().difference(startTime).inSeconds;
-      final wasResting = prefs.getBool('active_workout_resting') ?? false;
-      final restTime = prefs.getInt('active_workout_rest') ?? 0;
-      final restTotal = prefs.getInt('active_workout_rest_total') ?? 90;
+    try {
+      final map = json.decode(raw) as Map<String, dynamic>;
+      final startTime = DateTime.parse(map['start']);
+      final routine = (map['routine'] as List? ?? [])
+          .map((e) => WorkoutExerciseLive.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+      final restEndStr = map['restEnd'] as String?;
+      final restEnd = restEndStr != null ? DateTime.parse(restEndStr) : null;
+      final restTotal = map['restTotal'] as int? ?? 90;
 
       state = ActiveWorkoutState(
         isActive: true,
-        elapsedSeconds: actualElapsed,
-        isResting: wasResting,
-        restSeconds: restTime,
-        restSecondsTotal: restTotal,
+        elapsedSeconds: DateTime.now().difference(startTime).inSeconds,
         startTime: startTime,
+        routine: routine,
+        restSecondsTotal: restTotal,
+        name: map['name'],
       );
 
       _startStopwatch();
       WakelockPlus.enable();
 
-      if (wasResting && restTime > 0) {
-        _startRestTimer(restTime);
+      if (restEnd != null && restEnd.isAfter(DateTime.now())) {
+        _resumeRestTimer(restEnd, restTotal);
       }
+    } catch (e) {
+      debugPrint('Could not restore active workout: $e');
+      await prefs.remove(_sessionKey);
     }
   }
 
   Future<void> persistState() async {
-    if (!state.isActive) return;
-
+    _persistDebounce?.cancel();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_stateKey, 'active');
-    await prefs.setInt('active_workout_elapsed', state.elapsedSeconds);
-    await prefs.setBool('active_workout_resting', state.isResting);
-    await prefs.setInt('active_workout_rest', state.restSeconds);
-    await prefs.setInt('active_workout_rest_total', state.restSecondsTotal);
-    if (state.startTime != null) {
-      await prefs.setString(
-          'active_workout_start', state.startTime!.toIso8601String());
+    if (!state.isActive || state.startTime == null) {
+      await prefs.remove(_sessionKey);
+      return;
     }
+    await prefs.setString(
+      _sessionKey,
+      json.encode({
+        'start': state.startTime!.toIso8601String(),
+        'name': state.name,
+        'restEnd': _restEnd?.toIso8601String(),
+        'restTotal': state.restSecondsTotal,
+        'routine': state.routine.map((e) => e.toMap()).toList(),
+      }),
+    );
   }
 
-  /// Get the last used weight/reps for an exercise from workout history
-  Map<String, String>? _getPreviousExerciseData(String exerciseId) {
-    final trackerState = ref.read(trackerProvider);
-    if (trackerState.history.isEmpty) return null;
+  /// Persist shortly after any edit so a crash / OS kill never loses sets.
+  void _schedulePersist() {
+    _persistDebounce?.cancel();
+    _persistDebounce =
+        Timer(const Duration(milliseconds: 600), () => persistState());
+  }
 
-    // Find the most recent workout that contains this exercise
+  // ---------------------------------------------------------------------------
+  // Session lifecycle
+  // ---------------------------------------------------------------------------
+
+  /// Get the last completed weight/reps for an exercise from workout history.
+  List<Map<String, String>>? _getPreviousExerciseSets(String exerciseId) {
+    final trackerState = ref.read(trackerProvider);
     for (final workout in trackerState.history) {
       for (final liveEx in workout.routine) {
-        if (liveEx.exerciseId == exerciseId && liveEx.sets.isNotEmpty) {
-          // Find the last completed set
-          for (int i = liveEx.sets.length - 1; i >= 0; i--) {
-            final set = liveEx.sets[i];
-            if (set.isCompleted && set.weight.isNotEmpty && set.reps.isNotEmpty) {
-              return {
-                'weight': set.weight,
-                'reps': set.reps,
-              };
-            }
-          }
-          // If no completed sets, use the last set's values
-          final lastSet = liveEx.sets.last;
-          if (lastSet.weight.isNotEmpty || lastSet.reps.isNotEmpty) {
-            return {
-              'weight': lastSet.weight,
-              'reps': lastSet.reps,
-            };
-          }
+        if (liveEx.exerciseId != exerciseId) continue;
+        final done = liveEx.sets.where((s) => s.isCompleted).toList();
+        if (done.isNotEmpty) {
+          return done.map((s) => {'weight': s.weight, 'reps': s.reps}).toList();
         }
       }
     }
     return null;
   }
 
-  void startEmptyWorkout() {
+  void startEmptyWorkout({String? name}) {
+    _workoutTimer?.cancel();
+    _restTimer?.cancel();
+    _restEnd = null;
     _notificationService.init();
 
     state = ActiveWorkoutState(
       isActive: true,
       startTime: DateTime.now(),
+      name: name,
     );
     _startStopwatch();
     WakelockPlus.enable();
+    _schedulePersist();
+  }
+
+  /// Start a workout pre-filled with a program routine.
+  void startRoutine(WorkoutRoutine routine) {
+    startEmptyWorkout(name: routine.name);
+    for (final planned in routine.exercises) {
+      addExercise(
+        planned.exerciseId,
+        setsCount: planned.sets < 1 ? 1 : planned.sets,
+        repsHint: planned.reps,
+        restSeconds: planned.restSeconds,
+      );
+    }
   }
 
   void _startStopwatch() {
     _workoutTimer?.cancel();
     _workoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final newElapsed = state.elapsedSeconds + 1;
+      final start = state.startTime;
+      if (start == null) return;
+      final newElapsed = DateTime.now().difference(start).inSeconds;
       state = state.copyWith(elapsedSeconds: newElapsed);
 
       if (newElapsed % 30 == 0) {
@@ -220,37 +412,102 @@ class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState> {
   }
 
   String formatTime(int seconds) {
-    int m = seconds ~/ 60;
-    int s = seconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    if (seconds < 0) seconds = 0;
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    final mm = m.toString().padLeft(2, '0');
+    final ss = s.toString().padLeft(2, '0');
+    return h > 0 ? '$h:$mm:$ss' : '$mm:$ss';
   }
 
-  void addExercise(String exerciseId,
-      {int setsCount = 1, String repsHint = ''}) {
-    final liveExId = _uuid.v4();
-    
-    // Check for previous workout data
-    final previousData = _getPreviousExerciseData(exerciseId);
-    final weight = previousData?['weight'] ?? '';
-    final reps = repsHint.isNotEmpty ? repsHint : (previousData?['reps'] ?? '');
+  void endWorkout() {
+    _workoutTimer?.cancel();
+    _restTimer?.cancel();
+    _persistDebounce?.cancel();
+    _restEnd = null;
+
+    WakelockPlus.disable();
+    _notificationService.cancelWorkoutNotification();
+    _notificationService.cancelRestTimerNotification();
+    _notificationService.cancelScheduledRestFinished();
+
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove(_sessionKey);
+      for (final k in _legacyKeys) {
+        prefs.remove(k);
+      }
+    });
+
+    state = ActiveWorkoutState();
+  }
+
+  /// Ends the session without saving anything.
+  void discardWorkout() => endWorkout();
+
+  // ---------------------------------------------------------------------------
+  // Exercises & sets
+  // ---------------------------------------------------------------------------
+
+  void addExercise(
+    String exerciseId, {
+    int setsCount = 1,
+    String repsHint = '',
+    int? restSeconds,
+  }) {
+    final previousSets = _getPreviousExerciseSets(exerciseId);
+    // Only pre-fill reps with the program target if it is a plain number;
+    // targets like "8-12", "Max" or "45 sec" are shown as hints instead.
+    final numericHint = int.tryParse(repsHint.trim()) != null ? repsHint.trim() : '';
 
     state = state.copyWith(
       routine: [
         ...state.routine,
         WorkoutExerciseLive(
-          id: liveExId,
+          id: _uuid.v4(),
           exerciseId: exerciseId,
-          sets: List.generate(
-            setsCount,
-            (i) => LiveSet(
-              id: _uuid.v4(),
-              weight: weight,
-              reps: reps,
-            ),
-          ),
+          targetReps: repsHint.trim().isEmpty ? null : repsHint.trim(),
+          restSeconds: restSeconds,
+          sets: List.generate(setsCount, (i) {
+            String weight = '';
+            String reps = numericHint;
+            if (previousSets != null && previousSets.isNotEmpty) {
+              final prevIdx =
+                  i < previousSets.length ? i : previousSets.length - 1;
+              weight = previousSets[prevIdx]['weight'] ?? '';
+              if (reps.isEmpty) reps = previousSets[prevIdx]['reps'] ?? '';
+            }
+            return LiveSet(id: _uuid.v4(), weight: weight, reps: reps);
+          }),
         )
       ],
     );
+    _schedulePersist();
+  }
+
+  void removeExercise(String exerciseLiveId) {
+    state = state.copyWith(
+      routine: _cleanupSupersets(
+          state.routine.where((e) => e.id != exerciseLiveId).toList()),
+    );
+    _schedulePersist();
+  }
+
+  /// Re-inserts an exercise (used for "Undo" after removal).
+  void insertExercise(int index, WorkoutExerciseLive exercise) {
+    final list = [...state.routine];
+    list.insert(index.clamp(0, list.length), exercise);
+    state = state.copyWith(routine: list);
+    _schedulePersist();
+  }
+
+  void moveExercise(int oldIndex, int newIndex) {
+    final list = [...state.routine];
+    if (oldIndex < 0 || oldIndex >= list.length) return;
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex.clamp(0, list.length), item);
+    state = state.copyWith(routine: list);
+    _schedulePersist();
   }
 
   void setLogMode(String exerciseLiveId, LogMode mode) {
@@ -260,22 +517,20 @@ class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState> {
           if (ex.id == exerciseLiveId) ex.copyWith(logMode: mode) else ex
       ],
     );
+    _schedulePersist();
   }
 
   void addSet(String exerciseLiveId) {
-    // Get previous set data for the new set
-    final exercise = state.routine.firstWhere((ex) => ex.id == exerciseLiveId);
+    final idx = state.routine.indexWhere((ex) => ex.id == exerciseLiveId);
+    if (idx == -1) return;
+    final exercise = state.routine[idx];
+
+    // Copy the last set (completed or not) so the user only has to tweak it.
     String weight = '';
     String reps = '';
-    
-    // Find last completed set for pre-fill
-    for (int i = exercise.sets.length - 1; i >= 0; i--) {
-      final set = exercise.sets[i];
-      if (set.isCompleted && set.weight.isNotEmpty) {
-        weight = set.weight;
-        reps = set.reps;
-        break;
-      }
+    if (exercise.sets.isNotEmpty) {
+      weight = exercise.sets.last.weight;
+      reps = exercise.sets.last.reps;
     }
 
     state = state.copyWith(
@@ -290,121 +545,221 @@ class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState> {
             ex
       ],
     );
+    _schedulePersist();
+  }
+
+  void removeSet(String exerciseLiveId, String setId) {
+    state = state.copyWith(
+      routine: [
+        for (final ex in state.routine)
+          if (ex.id == exerciseLiveId)
+            ex.copyWith(sets: ex.sets.where((s) => s.id != setId).toList())
+          else
+            ex
+      ],
+    );
+    _schedulePersist();
+  }
+
+  void _updateOneSet(
+      String exerciseLiveId, String setId, LiveSet Function(LiveSet) f) {
+    state = state.copyWith(
+      routine: [
+        for (final ex in state.routine)
+          if (ex.id == exerciseLiveId)
+            ex.copyWith(sets: [
+              for (final set in ex.sets)
+                if (set.id == setId) f(set) else set
+            ])
+          else
+            ex
+      ],
+    );
+    _schedulePersist();
   }
 
   void updateSet(
       String exerciseLiveId, String setId, String field, String value) {
-    final updatedRoutine = state.routine.map((ex) {
-      if (ex.id == exerciseLiveId) {
-        final updatedSets = ex.sets.map((set) {
-          if (set.id == setId) {
-            if (field == 'weight') set.weight = value;
-            if (field == 'reps') set.reps = value;
-          }
-          return set;
-        }).toList();
-        return ex.copyWith(sets: updatedSets);
+    _updateOneSet(
+        exerciseLiveId,
+        setId,
+        (s) => s.copyWith(
+              weight: field == 'weight' ? value : null,
+              reps: field == 'reps' ? value : null,
+            ));
+  }
+
+  /// Fill a set with given values in one go (e.g. tapping "previous").
+  void fillSet(String exerciseLiveId, String setId,
+      {required String weight, required String reps}) {
+    _updateOneSet(
+        exerciseLiveId, setId, (s) => s.copyWith(weight: weight, reps: reps));
+  }
+
+  void setSetType(String exerciseLiveId, String setId, SetType type) {
+    _updateOneSet(exerciseLiveId, setId, (s) => s.copyWith(type: type));
+  }
+
+  void setRpe(String exerciseLiveId, String setId, double? rpe) {
+    _updateOneSet(exerciseLiveId, setId,
+        (s) => rpe == null ? s.copyWith(clearRpe: true) : s.copyWith(rpe: rpe));
+  }
+
+  /// Links this exercise with the next one in the list into a superset.
+  void supersetWithNext(String exerciseLiveId) {
+    final list = [...state.routine];
+    final i = list.indexWhere((e) => e.id == exerciseLiveId);
+    if (i == -1 || i + 1 >= list.length) return;
+    final groupId = list[i].supersetId ?? list[i + 1].supersetId ?? _uuid.v4();
+    final nextOldGroup = list[i + 1].supersetId;
+    for (var j = 0; j < list.length; j++) {
+      final e = list[j];
+      // Merge the next exercise's existing group into ours.
+      if (j == i || j == i + 1 || (nextOldGroup != null && e.supersetId == nextOldGroup)) {
+        list[j] = e.copyWith(supersetId: groupId);
       }
-      return ex;
-    }).toList();
-    state = state.copyWith(routine: updatedRoutine);
+    }
+    state = state.copyWith(routine: list);
+    _schedulePersist();
+  }
+
+  void removeFromSuperset(String exerciseLiveId) {
+    final list = [
+      for (final e in state.routine)
+        if (e.id == exerciseLiveId) e.copyWith(clearSuperset: true) else e
+    ];
+    state = state.copyWith(routine: _cleanupSupersets(list));
+    _schedulePersist();
+  }
+
+  /// A "superset" of one exercise is meaningless - dissolve it.
+  List<WorkoutExerciseLive> _cleanupSupersets(List<WorkoutExerciseLive> list) {
+    final counts = <String, int>{};
+    for (final e in list) {
+      if (e.supersetId != null) {
+        counts[e.supersetId!] = (counts[e.supersetId!] ?? 0) + 1;
+      }
+    }
+    return [
+      for (final e in list)
+        if (e.supersetId != null && (counts[e.supersetId!] ?? 0) < 2)
+          e.copyWith(clearSuperset: true)
+        else
+          e
+    ];
   }
 
   void toggleSetComplete(String exerciseLiveId, String setId) {
     bool newlyCompleted = false;
+    int? exerciseRest;
     final updatedRoutine = state.routine.map((ex) {
-      if (ex.id == exerciseLiveId) {
-        final updatedSets = ex.sets.map((set) {
-          if (set.id == setId) {
-            newlyCompleted = !set.isCompleted;
-            return LiveSet(
-                id: set.id,
-                weight: set.weight,
-                reps: set.reps,
-                isCompleted: newlyCompleted);
-          }
-          return set;
-        }).toList();
-        return ex.copyWith(sets: updatedSets);
-      }
-      return ex;
+      if (ex.id != exerciseLiveId) return ex;
+      exerciseRest = ex.restSeconds;
+      return ex.copyWith(
+        sets: ex.sets.map((set) {
+          if (set.id != setId) return set;
+          newlyCompleted = !set.isCompleted;
+          return set.copyWith(isCompleted: newlyCompleted);
+        }).toList(),
+      );
     }).toList();
 
     state = state.copyWith(routine: updatedRoutine);
     if (newlyCompleted) {
-      final settingsState = ref.read(settingsProvider);
-      final restTime = settingsState.defaultRestTime;
-      _startRestTimer(restTime);
+      HapticFeedback.lightImpact();
+      // In a superset you rest only after the last exercise of the round.
+      if (!_isMidSuperset(exerciseLiveId)) {
+        final restTime =
+            exerciseRest ?? ref.read(settingsProvider).defaultRestTime;
+        if (restTime > 0) _startRestTimer(restTime);
+      }
     }
+    _schedulePersist();
   }
 
+  bool _isMidSuperset(String exerciseLiveId) {
+    final ex = state.routine.where((e) => e.id == exerciseLiveId);
+    if (ex.isEmpty || ex.first.supersetId == null) return false;
+    final group = state.routine
+        .where((e) => e.supersetId == ex.first.supersetId)
+        .toList();
+    return group.last.id != exerciseLiveId;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rest timer
+  // ---------------------------------------------------------------------------
+
   void _startRestTimer(int seconds) {
+    _resumeRestTimer(DateTime.now().add(Duration(seconds: seconds)), seconds);
+    _schedulePersist();
+  }
+
+  void _resumeRestTimer(DateTime end, int total) {
     _restTimer?.cancel();
+    _restEnd = end;
+    final remaining = _remainingRest();
     state = state.copyWith(
       isResting: true,
-      restSeconds: seconds,
-      restSecondsTotal: seconds,
+      restSeconds: remaining,
+      restSecondsTotal: total,
     );
 
-    _notificationService.showRestTimerNotification(seconds, seconds);
+    _notificationService.showRestTimerNotification(remaining, total);
+    _notificationService.scheduleRestFinished(end);
 
     _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (state.restSeconds > 0) {
-        final newRestSeconds = state.restSeconds - 1;
-        state = state.copyWith(restSeconds: newRestSeconds);
-        _notificationService.showRestTimerNotification(
-            newRestSeconds, state.restSecondsTotal);
+      final left = _remainingRest();
+      if (left > 0) {
+        state = state.copyWith(restSeconds: left);
       } else {
         timer.cancel();
-        state = state.copyWith(isResting: false);
-        _notificationService.cancelRestTimerNotification();
+        _finishRest();
       }
     });
   }
 
+  int _remainingRest() {
+    final end = _restEnd;
+    if (end == null) return 0;
+    final ms = end.difference(DateTime.now()).inMilliseconds;
+    return ms <= 0 ? 0 : (ms / 1000).ceil();
+  }
+
+  void _finishRest() {
+    _restTimer?.cancel();
+    _restEnd = null;
+    state = state.copyWith(isResting: false, restSeconds: 0);
+    _notificationService.cancelRestTimerNotification();
+    // The "rest finished" alert was scheduled at timer start, so it fires even
+    // if the app was suspended. Here we only add in-app haptics.
+    HapticFeedback.vibrate();
+    Future.delayed(const Duration(milliseconds: 300), HapticFeedback.vibrate);
+    _schedulePersist();
+  }
+
   void adjustRestTimer(int adjustmentSeconds) {
-    if (!state.isResting) return;
+    if (!state.isResting || _restEnd == null) return;
 
-    final newTotal = (state.restSecondsTotal + adjustmentSeconds).clamp(5, 300);
-    final newCurrent = (state.restSeconds + adjustmentSeconds).clamp(0, 300);
+    final newEnd = _restEnd!.add(Duration(seconds: adjustmentSeconds));
+    final newTotal =
+        (state.restSecondsTotal + adjustmentSeconds).clamp(5, 600);
 
-    state = state.copyWith(
-      restSeconds: newCurrent,
-      restSecondsTotal: newTotal,
-    );
-
-    _notificationService.showRestTimerNotification(newCurrent, newTotal);
-
-    if (newCurrent <= 0) {
-      _restTimer?.cancel();
-      state = state.copyWith(isResting: false);
-      _notificationService.cancelRestTimerNotification();
+    if (!newEnd.isAfter(DateTime.now())) {
+      _notificationService.cancelScheduledRestFinished();
+      _finishRest();
+      return;
     }
+    _resumeRestTimer(newEnd, newTotal);
+    _schedulePersist();
   }
 
   void skipRest() {
     _restTimer?.cancel();
+    _restEnd = null;
     state = state.copyWith(isResting: false, restSeconds: 0);
     _notificationService.cancelRestTimerNotification();
-  }
-
-  void endWorkout() {
-    _workoutTimer?.cancel();
-    _restTimer?.cancel();
-
-    WakelockPlus.disable();
-    _notificationService.cancelWorkoutNotification();
-    _notificationService.cancelRestTimerNotification();
-
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.remove(_stateKey);
-      prefs.remove('active_workout_elapsed');
-      prefs.remove('active_workout_resting');
-      prefs.remove('active_workout_rest');
-      prefs.remove('active_workout_rest_total');
-      prefs.remove('active_workout_start');
-    });
-
-    state = ActiveWorkoutState();
+    _notificationService.cancelScheduledRestFinished();
+    _schedulePersist();
   }
 }

@@ -114,10 +114,12 @@ class RoutineSelectorBottomSheet extends ConsumerWidget {
                         .read(programProvider.notifier)
                         .updateProgram(updatedProgram);
 
+                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
-                        content: Text('Added to ${routine.name}'),
+                        content: Text('Added to ${routine.name}',
+                            style: const TextStyle(color: Colors.black)),
                         backgroundColor: AppColors.accent,
                       ),
                     );

@@ -27,6 +27,7 @@ class ProgramState {
     List<Program>? popularPrograms,
     List<Program>? customPrograms,
     String? activeProgramId,
+    bool clearActiveProgram = false,
     int? currentRoutineIndex,
     bool? isLoading,
     String? error,
@@ -34,7 +35,9 @@ class ProgramState {
       ProgramState(
         popularPrograms: popularPrograms ?? this.popularPrograms,
         customPrograms: customPrograms ?? this.customPrograms,
-        activeProgramId: activeProgramId ?? this.activeProgramId,
+        activeProgramId: clearActiveProgram
+            ? null
+            : (activeProgramId ?? this.activeProgramId),
         currentRoutineIndex: currentRoutineIndex ?? this.currentRoutineIndex,
         isLoading: isLoading ?? this.isLoading,
         error: error,
@@ -44,10 +47,10 @@ class ProgramState {
 
   Program? get activeProgram {
     if (activeProgramId == null) return null;
-    return allPrograms.firstWhere(
-      (p) => p.id == activeProgramId,
-      orElse: () => allPrograms.first,
-    );
+    for (final p in allPrograms) {
+      if (p.id == activeProgramId) return p.routines.isEmpty ? null : p;
+    }
+    return null;
   }
 }
 
@@ -178,6 +181,9 @@ class ProgramNotifier extends Notifier<ProgramState> {
     if (state.activeProgramId != null) {
       await prefs.setString(_activeKey, state.activeProgramId!);
       await prefs.setInt(_indexKey, state.currentRoutineIndex);
+    } else {
+      await prefs.remove(_activeKey);
+      await prefs.remove(_indexKey);
     }
   }
 
@@ -310,7 +316,7 @@ class ProgramNotifier extends Notifier<ProgramState> {
     );
 
     if (state.activeProgramId == id) {
-      state = state.copyWith(activeProgramId: null);
+      state = state.copyWith(clearActiveProgram: true, currentRoutineIndex: 0);
     }
 
     await _saveCustomPrograms();
@@ -326,7 +332,7 @@ class ProgramNotifier extends Notifier<ProgramState> {
   }
 
   void clearActiveProgram() {
-    state = state.copyWith(activeProgramId: null);
+    state = state.copyWith(clearActiveProgram: true, currentRoutineIndex: 0);
     _saveActiveState();
   }
 
@@ -337,7 +343,7 @@ class ProgramNotifier extends Notifier<ProgramState> {
 
   void nextRoutine() {
     final program = state.activeProgram;
-    if (program != null) {
+    if (program != null && program.routines.isNotEmpty) {
       final nextIndex =
           (state.currentRoutineIndex + 1) % program.routines.length;
       setCurrentRoutineIndex(nextIndex);
@@ -366,7 +372,7 @@ class ProgramNotifier extends Notifier<ProgramState> {
     await prefs.remove(_storageKey);
     await prefs.remove(_activeKey);
     await prefs.remove(_indexKey);
-    state = state.copyWith(customPrograms: [], activeProgramId: null);
+    state = state.copyWith(customPrograms: [], clearActiveProgram: true);
     debugPrint('🧹 Cleared all program data');
   }
 

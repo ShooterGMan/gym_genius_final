@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/program_provider.dart';
-import '../providers/active_workout_provider.dart';
 import '../providers/tracker_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/pr_tracker_provider.dart';
 import '../models/program.dart';
 import '../theme/app_theme.dart';
+import '../widgets/workout_launcher.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -173,15 +173,15 @@ class DashboardScreen extends ConsumerWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: isToday
-                        ? AppColors.accent.withOpacity(0.1)
+                        ? AppColors.accent.withValues(alpha: 0.1)
                         : isCompleted
-                            ? AppColors.accent.withOpacity(0.05)
+                            ? AppColors.accent.withValues(alpha: 0.05)
                             : Colors.transparent,
                     shape: BoxShape.circle,
                     border: isToday
-                        ? Border.all(color: AppColors.accent.withOpacity(0.3))
+                        ? Border.all(color: AppColors.accent.withValues(alpha: 0.3))
                         : isCompleted
-                            ? Border.all(color: AppColors.accent.withOpacity(0.15))
+                            ? Border.all(color: AppColors.accent.withValues(alpha: 0.15))
                             : null,
                   ),
                   child: isCompleted
@@ -225,19 +225,12 @@ class DashboardScreen extends ConsumerWidget {
     return GestureDetector(
       onTap: () {
         HapticFeedback.heavyImpact();
-        final activeNotifier = ref.read(activeWorkoutProvider.notifier);
-        final programNotifier = ref.read(programProvider.notifier);
-
-        activeNotifier.startEmptyWorkout();
-        for (var planned in nextRoutine.exercises) {
-          activeNotifier.addExercise(
-            planned.exerciseId,
-            setsCount: planned.sets,
-            repsHint: planned.reps,
-          );
-        }
-        programNotifier.nextRoutine();
-        context.push('/workout');
+        launchWorkout(
+          context,
+          ref,
+          routine: nextRoutine,
+          onStarted: () => ref.read(programProvider.notifier).nextRoutine(),
+        );
       },
       child: Container(
         height: cardHeight,
@@ -249,21 +242,24 @@ class DashboardScreen extends ConsumerWidget {
         ),
         child: Stack(
           children: [
-            Image.asset(
-              program.displayImage,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: AppColors.surface,
-                child: Icon(
-                  Icons.fitness_center,
-                  size: isSmallScreen ? 36 : 48,
-                  color: Colors.white24,
+            Hero(
+              tag: 'program_${program.id}',
+              child: Image.asset(
+                program.displayImage,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: AppColors.surface,
+                  child: Icon(
+                    Icons.fitness_center,
+                    size: isSmallScreen ? 36 : 48,
+                    color: Colors.white24,
+                  ),
                 ),
               ),
             ),
-            Container(color: Colors.black.withOpacity(0.6)),
+            Container(color: Colors.black.withValues(alpha: 0.6)),
             Padding(
               padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
               child: Column(
@@ -290,10 +286,10 @@ class DashboardScreen extends ConsumerWidget {
                           vertical: isSmallScreen ? 4 : 6,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.accent.withOpacity(0.2),
+                          color: AppColors.accent.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: AppColors.accent.withOpacity(0.3),
+                            color: AppColors.accent.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Text(
@@ -360,13 +356,13 @@ class DashboardScreen extends ConsumerWidget {
             Icon(
               Icons.fitness_center,
               size: iconSize,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
             SizedBox(height: isSmallScreen ? 12 : 16),
             Text(
               "No Active Program",
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: titleSize,
                 fontWeight: FontWeight.bold,
               ),
@@ -375,10 +371,32 @@ class DashboardScreen extends ConsumerWidget {
             Text(
               "Discover or create a program to get started",
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: messageSize,
               ),
               textAlign: TextAlign.center,
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 16 : 24,
+                  vertical: isSmallScreen ? 8 : 12,
+                ),
+              ),
+              onPressed: () => context.go('/programs?tab=discover'),
+              child: Text(
+                "DISCOVER PROGRAMS",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: isSmallScreen ? 10 : 12,
+                ),
+              ),
             ),
           ],
         ),
@@ -399,9 +417,9 @@ class DashboardScreen extends ConsumerWidget {
           "FAVORITE EXERCISES",
           "Quick access to your starred exercises",
           Icons.star,
-          "assets/placeholders/chest.avif",
+          "assets/placeholders/chest.jpg",
           screenWidth,
-          onTap: () => context.push('/library/favorites'),
+          onTap: () => context.go('/library/favorites'),
         ),
         SizedBox(height: isSmallScreen ? 12 : 16),
 
@@ -411,9 +429,9 @@ class DashboardScreen extends ConsumerWidget {
           "PERSONAL RECORDS",
           prCount > 0 ? "$prCount exercises with PRs" : "Track your best lifts",
           Icons.emoji_events,
-          "assets/placeholders/back.avif",
+          "assets/placeholders/back.jpg",
           screenWidth,
-          onTap: () => context.push('/tracker'),
+          onTap: () => context.go('/tracker'),
         ),
         SizedBox(height: isSmallScreen ? 12 : 16),
 
@@ -423,9 +441,9 @@ class DashboardScreen extends ConsumerWidget {
           "MY PROGRAMS",
           "View your saved templates",
           Icons.folder_open,
-          "assets/placeholders/full body.avif",
+          "assets/placeholders/full_body.jpg",
           screenWidth,
-          onTap: () => context.push('/programs'),
+          onTap: () => context.go('/programs'),
         ),
         SizedBox(height: isSmallScreen ? 12 : 16),
 
@@ -435,9 +453,9 @@ class DashboardScreen extends ConsumerWidget {
           "DISCOVER",
           "Find new workout plans",
           Icons.explore,
-          "assets/placeholders/cardio.avif",
+          "assets/placeholders/cardio.jpg",
           screenWidth,
-          onTap: () => context.push('/discover'),
+          onTap: () => context.go('/programs?tab=discover'),
         ),
       ],
     );
@@ -479,7 +497,7 @@ class DashboardScreen extends ConsumerWidget {
                 color: AppColors.surface,
               ),
             ),
-            Container(color: Colors.black.withOpacity(0.7)),
+            Container(color: Colors.black.withValues(alpha: 0.7)),
             Padding(
               padding: EdgeInsets.all(isSmallScreen ? 14 : 20),
               child: Row(
@@ -539,7 +557,7 @@ class DashboardScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(isSmallScreen ? 20 : 24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.accent.withOpacity(0.1),
+            color: AppColors.accent.withValues(alpha: 0.1),
             blurRadius: 20,
             spreadRadius: -5,
           ),
@@ -548,16 +566,15 @@ class DashboardScreen extends ConsumerWidget {
       child: OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           padding: EdgeInsets.symmetric(vertical: verticalPadding),
-          side: BorderSide(color: AppColors.accent.withOpacity(0.4)),
+          side: BorderSide(color: AppColors.accent.withValues(alpha: 0.4)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(isSmallScreen ? 20 : 24),
           ),
-          backgroundColor: AppColors.accent.withOpacity(0.05),
+          backgroundColor: AppColors.accent.withValues(alpha: 0.05),
         ),
         onPressed: () {
           HapticFeedback.heavyImpact();
-          ref.read(activeWorkoutProvider.notifier).startEmptyWorkout();
-          context.push('/workout');
+          launchWorkout(context, ref);
         },
         icon: Icon(Icons.flash_on, color: AppColors.accent, size: isSmallScreen ? 16 : 20),
         label: Text(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/tracker_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../models/exercise.dart';
@@ -10,6 +11,71 @@ import '../theme/app_theme.dart';
 class WorkoutHistoryDetailsScreen extends ConsumerWidget {
   final String workoutId;
   const WorkoutHistoryDetailsScreen({super.key, required this.workoutId});
+
+  void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+          ),
+          title: const Text(
+            'DELETE WORKOUT?',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+          content: const Text(
+            'This will permanently delete this completed session from your history and stats. This action cannot be undone.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'CANCEL',
+                style: TextStyle(color: Colors.white38, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () async {
+                Navigator.pop(context); // Pop dialog
+                await ref.read(trackerProvider.notifier).deleteWorkout(workoutId);
+                if (context.mounted) {
+                  context.pop(); // Pop screen
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text(
+                        'Workout deleted.',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      backgroundColor: Colors.redAccent,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  );
+                }
+              },
+              child: const Text(
+                'DELETE',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -47,6 +113,12 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
           icon: const Icon(Icons.chevron_left, color: Colors.white, size: 32),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 28),
+            onPressed: () => _showDeleteConfirmDialog(context, ref),
+          ),
+        ],
       ),
       body: workout.routine.isEmpty
           ? const Center(
@@ -117,7 +189,7 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
                                   color: AppColors.accent, size: 16),
                               const SizedBox(width: 4),
                               Text(
-                                "${workout.totalVolume.toInt()} kg",
+                                "${workout.totalVolume.toInt()} ${ref.watch(settingsProvider).weightUnit}",
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -186,9 +258,11 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
     Exercise ex,
   ) {
     // Determine labels based on log mode
-    String unit1 = "KG";
+    String unit1 = ref.read(settingsProvider).weightUnit.toUpperCase();
     String unit2 = "REPS";
-    if (liveEx.logMode == LogMode.timeAndReps) {
+    if (liveEx.logMode == LogMode.repsOnly) {
+      unit1 = "";
+    } else if (liveEx.logMode == LogMode.timeAndReps) {
       unit1 = "TIME";
       unit2 = "REPS";
     } else if (liveEx.logMode == LogMode.timeAndDistance) {
@@ -202,8 +276,10 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
     for (final set in liveEx.sets) {
       if (set.isCompleted) {
         completedSets++;
-        exerciseVolume += (double.tryParse(set.weight) ?? 0) *
-            (double.tryParse(set.reps) ?? 0);
+        if (liveEx.tracksWeight) {
+          exerciseVolume += (double.tryParse(set.weight) ?? 0) *
+              (double.tryParse(set.reps) ?? 0);
+        }
       }
     }
 
@@ -213,7 +289,7 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +340,9 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "${completedSets}/${liveEx.sets.length} sets • ${exerciseVolume.toInt()} $unit1",
+                              liveEx.tracksWeight
+                                  ? "$completedSets sets • ${exerciseVolume.toInt()} ${unit1.toLowerCase()} volume"
+                                  : "$completedSets sets",
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 12,
@@ -298,6 +376,7 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+                if (unit1.isNotEmpty)
                 Expanded(
                   child: Text(
                     unit1,
@@ -337,7 +416,7 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               decoration: BoxDecoration(
                 color: set.isCompleted
-                    ? AppColors.accent.withOpacity(0.1)
+                    ? AppColors.accent.withValues(alpha: 0.1)
                     : Colors.black12,
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -346,7 +425,9 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
                   SizedBox(
                     width: 30,
                     child: Text(
-                      "$setIndex",
+                      set.type == SetType.normal
+                          ? "$setIndex"
+                          : "$setIndex${set.type.marker}",
                       style: TextStyle(
                         color: set.isCompleted
                             ? AppColors.accent
@@ -356,6 +437,7 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  if (unit1.isNotEmpty)
                   Expanded(
                     child: Text(
                       set.isCompleted
@@ -372,7 +454,15 @@ class WorkoutHistoryDetailsScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       set.isCompleted
-                          ? (set.reps.isEmpty ? "-" : set.reps)
+                          // Older reps-only logs stored reps in the weight field.
+                          ? (set.reps.isNotEmpty
+                                  ? set.reps
+                                  : (unit1.isEmpty && set.weight.isNotEmpty
+                                      ? set.weight
+                                      : "-")) +
+                              (set.rpe != null
+                                  ? " @${set.rpe! % 1 == 0 ? set.rpe!.toInt() : set.rpe}"
+                                  : "")
                           : "SKIP",
                       textAlign: TextAlign.center,
                       style: TextStyle(

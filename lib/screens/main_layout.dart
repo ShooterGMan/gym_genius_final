@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/active_workout_provider.dart';
@@ -23,57 +24,27 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  Future<bool> _onWillPop() async {
-    final currentRoute = GoRouterState.of(context).uri.path;
-
-    if (currentRoute != '/dashboard' && currentRoute != '/') {
-      context.go('/dashboard');
-      return false;
+  /// Back on a non-home tab returns to Dashboard; on Dashboard a second
+  /// press within 2s exits (standard Android pattern).
+  void _handleBack() {
+    if (widget.navigationShell.currentIndex != 0) {
+      widget.navigationShell.goBranch(0);
+      return;
     }
-
     final now = DateTime.now();
-    final backButtonHasNotBeenPressedOrSnackBarHasBeenClosed =
-        _lastBackPress == null ||
-            now.difference(_lastBackPress!) > const Duration(seconds: 2);
-
-    if (backButtonHasNotBeenPressedOrSnackBarHasBeenClosed) {
-      _lastBackPress = now;
-
-      final shouldExit = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            "Exit App?",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          content: const Text(
-            "Are you sure you want to exit GymGenius?",
-            style: TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child:
-                  const Text("Cancel", style: TextStyle(color: Colors.white70)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text("Exit",
-                  style: TextStyle(
-                      color: AppColors.accent, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      );
-
-      return shouldExit ?? false;
+    if (_lastBackPress != null &&
+        now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
+      SystemNavigator.pop();
+      return;
     }
-
-    return false;
+    _lastBackPress = now;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Text('Press back again to exit'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ));
   }
 
   @override
@@ -88,10 +59,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
-        if (!didPop) {
-          await _onWillPop();
-        }
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
       },
       child: Scaffold(
         body: Stack(
@@ -119,11 +88,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       border: Border.all(
                         color: activeWorkout.isResting
                             ? AppColors.accent
-                            : AppColors.accent.withOpacity(0.3),
+                            : AppColors.accent.withValues(alpha: 0.3),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           blurRadius: 10,
                           offset: const Offset(0, 5),
                         ),
@@ -137,7 +106,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                           decoration: BoxDecoration(
                             color: activeWorkout.isResting
                                 ? Colors.black12
-                                : AppColors.accent.withOpacity(0.1),
+                                : AppColors.accent.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -172,7 +141,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                "Tap to maximize",
+                                activeWorkout.isResting
+                                    ? "Tap to return to workout"
+                                    : "${activeWorkout.completedSetCount} sets done • tap to open",
                                 style: TextStyle(
                                   color: activeWorkout.isResting
                                       ? Colors.black54
@@ -235,18 +206,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             elevation: 0,
             landscapeLayout: BottomNavigationBarLandscapeLayout.centered,
             items: [
-              _buildNavItem(Icons.dashboard_outlined, Icons.dashboard, 'DASH',
-                  'DASHBOARD', isSmallScreen),
+              _buildNavItem(Icons.home_outlined, Icons.home, 'HOME', 'HOME',
+                  isSmallScreen),
               _buildNavItem(Icons.fitness_center_outlined, Icons.fitness_center,
-                  'LIB', 'LIBRARY', isSmallScreen),
-              _buildNavItem(Icons.explore_outlined, Icons.explore, 'DISC',
-                  'DISCOVER', isSmallScreen),
-              _buildNavItem(Icons.list_alt_outlined, Icons.list_alt, 'PROG',
+                  'LIBRARY', 'LIBRARY', isSmallScreen),
+              _buildNavItem(Icons.list_alt_outlined, Icons.list_alt, 'PROGRAMS',
                   'PROGRAMS', isSmallScreen),
-              _buildNavItem(Icons.track_changes_outlined, Icons.track_changes,
-                  'TRACK', 'TRACKER', isSmallScreen),
-              _buildNavItem(Icons.settings_outlined, Icons.settings, 'SET',
-                  'SETTINGS', isSmallScreen),
+              _buildNavItem(Icons.insights_outlined, Icons.insights, 'PROGRESS',
+                  'PROGRESS', isSmallScreen),
             ],
           ),
         ),
@@ -262,7 +229,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: AppColors.accent.withOpacity(0.2),
+              color: AppColors.accent.withValues(alpha: 0.2),
               blurRadius: 12,
               spreadRadius: 2,
             ),

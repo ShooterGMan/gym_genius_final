@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/pr_tracker_provider.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/exercise.dart';
 import '../theme/app_theme.dart';
 
@@ -11,6 +12,7 @@ class PRTrackerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final unit = ref.watch(settingsProvider).weightUnit;
     final prState = ref.watch(prTrackerProvider);
     final exercises = ref.watch(exercisesProvider).value ?? [];
     final screenWidth = MediaQuery.of(context).size.width;
@@ -18,6 +20,22 @@ class PRTrackerScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => _AddPRBottomSheet(exercises: exercises),
+          );
+        },
+        backgroundColor: AppColors.accent,
+        foregroundColor: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(Icons.add, size: 28),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -84,9 +102,9 @@ class PRTrackerScreen extends ConsumerWidget {
                     Expanded(
                       child: TabBarView(
                         children: [
-                          _buildPRList(prState.heaviestWeight, exercises, 'weight', isSmallScreen),
-                          _buildPRList(prState.mostReps, exercises, 'reps', isSmallScreen),
-                          _buildPRList(prState.highestVolume, exercises, 'volume', isSmallScreen),
+                          _buildPRList(prState.heaviestWeight, exercises, 'weight', isSmallScreen, unit),
+                          _buildPRList(prState.mostReps, exercises, 'reps', isSmallScreen, unit),
+                          _buildPRList(prState.highestVolume, exercises, 'volume', isSmallScreen, unit),
                         ],
                       ),
                     ),
@@ -105,6 +123,7 @@ class PRTrackerScreen extends ConsumerWidget {
     List<Exercise> exercises,
     String category,
     bool isSmallScreen,
+    String unit,
   ) {
     if (records.isEmpty) {
       return Center(
@@ -120,7 +139,7 @@ class PRTrackerScreen extends ConsumerWidget {
             Text(
               "No records yet",
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: isSmallScreen ? 15 : 17,
                 fontWeight: FontWeight.w500,
               ),
@@ -130,7 +149,7 @@ class PRTrackerScreen extends ConsumerWidget {
               "Complete workouts to start\ntracking your records!",
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 fontSize: isSmallScreen ? 12 : 14,
               ),
             ),
@@ -171,7 +190,7 @@ class PRTrackerScreen extends ConsumerWidget {
           ),
         );
 
-        return _buildPRCard(pr, exercise, index + 1, category, isSmallScreen);
+        return _buildPRCard(pr, exercise, index + 1, category, isSmallScreen, unit);
       },
     );
   }
@@ -182,6 +201,7 @@ class PRTrackerScreen extends ConsumerWidget {
     int rank,
     String category,
     bool isSmallScreen,
+    String unit,
   ) {
     // Medal colors for top 3
     Color? rankColor;
@@ -207,13 +227,13 @@ class PRTrackerScreen extends ConsumerWidget {
     String displayUnit;
     if (category == 'weight') {
       displayValue = '${pr.weight.toStringAsFixed(pr.weight == pr.weight.toInt() ? 0 : 1)}';
-      displayUnit = 'kg';
+      displayUnit = unit;
     } else if (category == 'reps') {
       displayValue = '${pr.reps}';
       displayUnit = 'reps';
     } else {
       displayValue = '${pr.volume.toStringAsFixed(0)}';
-      displayUnit = 'kg total';
+      displayUnit = '$unit total';
     }
 
     return Container(
@@ -223,12 +243,12 @@ class PRTrackerScreen extends ConsumerWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
         border: Border.all(
-          color: rankColor?.withOpacity(0.3) ?? Colors.white.withOpacity(0.05),
+          color: rankColor?.withValues(alpha: 0.3) ?? Colors.white.withValues(alpha: 0.05),
         ),
         boxShadow: rankColor != null
             ? [
                 BoxShadow(
-                  color: rankColor.withOpacity(0.1),
+                  color: rankColor.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -334,10 +354,10 @@ class PRTrackerScreen extends ConsumerWidget {
               vertical: isSmallScreen ? 8 : 10,
             ),
             decoration: BoxDecoration(
-              color: (rankColor ?? AppColors.accent).withOpacity(0.1),
+              color: (rankColor ?? AppColors.accent).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(isSmallScreen ? 10 : 14),
               border: Border.all(
-                color: (rankColor ?? AppColors.accent).withOpacity(0.3),
+                color: (rankColor ?? AppColors.accent).withValues(alpha: 0.3),
               ),
             ),
             child: Column(
@@ -353,7 +373,7 @@ class PRTrackerScreen extends ConsumerWidget {
                 Text(
                   displayUnit,
                   style: TextStyle(
-                    color: (rankColor ?? AppColors.accent).withOpacity(0.7),
+                    color: (rankColor ?? AppColors.accent).withValues(alpha: 0.7),
                     fontSize: isSmallScreen ? 8 : 9,
                     fontWeight: FontWeight.bold,
                   ),
@@ -364,5 +384,443 @@ class PRTrackerScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+class _AddPRBottomSheet extends ConsumerStatefulWidget {
+  final List<Exercise> exercises;
+  const _AddPRBottomSheet({required this.exercises});
+
+  @override
+  ConsumerState<_AddPRBottomSheet> createState() => _AddPRBottomSheetState();
+}
+
+class _AddPRBottomSheetState extends ConsumerState<_AddPRBottomSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _weightController = TextEditingController();
+  final _repsController = TextEditingController();
+
+  late Exercise _selectedExercise;
+  String _selectedCategory = 'weight'; // 'weight', 'reps', 'volume'
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedExercise = widget.exercises.isNotEmpty
+        ? widget.exercises.first
+        : Exercise(
+            id: 'default',
+            name: 'Select Exercise',
+            equipment: '',
+            level: '',
+            primaryMuscles: [],
+            secondaryMuscles: [],
+            category: '',
+            images: [],
+            instructions: [],
+          );
+  }
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    _repsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    
+    return Container(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: 24 + bottomInset,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'LOG PERSONAL RECORD',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              Text(
+                'EXERCISE',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.02),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<Exercise>(
+                    value: _selectedExercise,
+                    dropdownColor: AppColors.surface,
+                    isExpanded: true,
+                    icon: const Icon(Icons.arrow_drop_down, color: AppColors.accent),
+                    style: const TextStyle(color: Colors.white),
+                    items: widget.exercises.map((ex) {
+                      return DropdownMenuItem<Exercise>(
+                        value: ex,
+                        child: Text(ex.name, overflow: TextOverflow.ellipsis),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedExercise = val;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PR TYPE',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.02),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedCategory,
+                              dropdownColor: AppColors.surface,
+                              isExpanded: true,
+                              icon: const Icon(Icons.arrow_drop_down, color: AppColors.accent),
+                              style: const TextStyle(color: Colors.white),
+                              items: const [
+                                DropdownMenuItem(value: 'weight', child: Text('Heaviest Weight')),
+                                DropdownMenuItem(value: 'reps', child: Text('Most Reps')),
+                                DropdownMenuItem(value: 'volume', child: Text('Highest Volume')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    _selectedCategory = val;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'DATE',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: _pickDate,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.02),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                const Icon(Icons.calendar_today, color: AppColors.accent, size: 18),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'WEIGHT (${ref.watch(settingsProvider).weightUnit.toUpperCase()})',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _weightController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: const TextStyle(color: Colors.white),
+                          cursorColor: AppColors.accent,
+                          decoration: InputDecoration(
+                            hintText: 'e.g. 100',
+                            hintStyle: const TextStyle(color: Colors.white30),
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: 0.02),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: AppColors.accent),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Required';
+                            }
+                            if (double.tryParse(value) == null) {
+                              return 'Invalid';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'REPS',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _repsController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: Colors.white),
+                          cursorColor: AppColors.accent,
+                          decoration: InputDecoration(
+                            hintText: 'e.g. 5',
+                            hintStyle: const TextStyle(color: Colors.white30),
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: 0.02),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(color: AppColors.accent),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Required';
+                            }
+                            if (int.tryParse(value) == null) {
+                              return 'Invalid';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              ElevatedButton(
+                onPressed: _savePR,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: Colors.black,
+                  minimumSize: const Size.fromHeight(56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'SAVE PERSONAL RECORD',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.accent,
+              onPrimary: Colors.black,
+              surface: AppColors.surface,
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  void _savePR() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final weight = double.parse(_weightController.text.trim());
+    final reps = int.parse(_repsController.text.trim());
+
+    final pr = PersonalRecord(
+      exerciseId: _selectedExercise.id,
+      exerciseName: _selectedExercise.name,
+      weight: weight,
+      reps: reps,
+      date: _selectedDate,
+      category: _selectedCategory,
+    );
+
+    try {
+      await ref.read(manualPRsProvider.notifier).addManualPR(pr);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'PR saved for "${_selectedExercise.name}"!',
+              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: AppColors.accent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving PR: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 }

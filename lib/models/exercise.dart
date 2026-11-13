@@ -34,4 +34,18 @@ class Exercise {
       instructions: List<String>.from(json['instructions'] ?? []),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'equipment': equipment,
+      'level': level,
+      'primaryMuscles': primaryMuscles,
+      'secondaryMuscles': secondaryMuscles,
+      'category': category,
+      'images': images,
+      'instructions': instructions,
+    };
+  }
 }

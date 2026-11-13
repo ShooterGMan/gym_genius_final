@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/program_provider.dart';
-import '../providers/active_workout_provider.dart';
 import '../services/image_cache_service.dart';
 import '../models/program.dart';
 import '../theme/app_theme.dart';
+import '../widgets/workout_launcher.dart';
 
 class ProgramsScreen extends ConsumerStatefulWidget {
   const ProgramsScreen({super.key});
@@ -83,7 +83,7 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
                       color: AppColors.accent,
                       size: iconSize,
                     ),
-                    onPressed: () => context.push('/discover'),
+                    onPressed: () => context.go('/programs?tab=discover'),
                     tooltip: 'Discover Programs',
                   ),
                   IconButton(
@@ -103,7 +103,7 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
           Text(
             "$programCount ${programCount == 1 ? 'program' : 'programs'} saved",
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: isSmallScreen ? 12 : 14,
             ),
           ),
@@ -190,7 +190,7 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
                                 vertical: isSmallScreen ? 1 : 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.accent.withOpacity(0.2),
+                                color: AppColors.accent.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(
                                     isSmallScreen ? 6 : 8),
                               ),
@@ -222,7 +222,7 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
                               vertical: isSmallScreen ? 1 : 2,
                             ),
                             decoration: BoxDecoration(
-                              color: program.difficultyColor.withOpacity(0.2),
+                              color: program.difficultyColor.withValues(alpha: 0.2),
                               borderRadius:
                                   BorderRadius.circular(isSmallScreen ? 5 : 6),
                             ),
@@ -243,7 +243,7 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
                                 vertical: isSmallScreen ? 1 : 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.accent.withOpacity(0.15),
+                                color: AppColors.accent.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(
                                     isSmallScreen ? 5 : 6),
                               ),
@@ -311,7 +311,7 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
           Text(
             "Create your own or discover popular workouts",
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: isSmallScreen ? 12 : 14,
             ),
             textAlign: TextAlign.center,
@@ -342,7 +342,7 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
               ),
               SizedBox(width: isSmallScreen ? 12 : 16),
               OutlinedButton.icon(
-                onPressed: () => context.push('/discover'),
+                onPressed: () => context.go('/programs?tab=discover'),
                 icon: Icon(Icons.explore, size: isSmallScreen ? 16 : 18),
                 label: Text(
                   "DISCOVER",
@@ -473,12 +473,7 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
   }
 
   void _startProgram(BuildContext context, Program program) {
-    final activeNotifier = ref.read(activeWorkoutProvider.notifier);
     final programNotifier = ref.read(programProvider.notifier);
-
-    if (ref.read(programProvider).activeProgramId != program.id) {
-      programNotifier.setActiveProgram(program.id);
-    }
 
     if (program.routines.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -490,18 +485,21 @@ class _ProgramsScreenState extends ConsumerState<ProgramsScreen> {
       return;
     }
 
-    final firstRoutine = program.routines.first;
-    activeNotifier.startEmptyWorkout();
+    // Continue where the user left off if this is already the active program.
+    final ps = ref.read(programProvider);
+    final isActive = ps.activeProgramId == program.id;
+    final idx = isActive ? ps.currentRoutineIndex % program.routines.length : 0;
+    final routine = program.routines[idx];
 
-    for (var exercise in firstRoutine.exercises) {
-      activeNotifier.addExercise(
-        exercise.exerciseId,
-        setsCount: exercise.sets,
-        repsHint: exercise.reps,
-      );
-    }
-
-    context.push('/workout');
+    launchWorkout(
+      context,
+      ref,
+      routine: routine,
+      onStarted: () {
+        if (!isActive) programNotifier.setActiveProgram(program.id);
+        programNotifier.setCurrentRoutineIndex(idx + 1);
+      },
+    );
   }
 
   void _confirmDelete(BuildContext context, Program program) {

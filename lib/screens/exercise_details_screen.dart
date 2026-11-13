@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/exercise_provider.dart';
-import '../models/exercise.dart';
 import '../theme/app_theme.dart';
+import '../widgets/routine_selector_bottom_sheet.dart';
+import '../widgets/exercise_progress_section.dart';
 
 class ExerciseDetailsScreen extends ConsumerStatefulWidget {
   final String exerciseId;
@@ -28,10 +29,29 @@ class _ExerciseDetailsScreenState extends ConsumerState<ExerciseDetailsScreen> {
               child: CircularProgressIndicator(color: AppColors.accent)),
           error: (err, stack) => Center(child: Text('Error: $err')),
           data: (allExercises) {
-            final exercise = allExercises.firstWhere(
-              (ex) => ex.id == widget.exerciseId,
-              orElse: () => throw Exception('Exercise not found'),
-            );
+            final matches =
+                allExercises.where((ex) => ex.id == widget.exerciseId);
+            if (matches.isEmpty) {
+              return Column(children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.chevron_left,
+                        color: Colors.white, size: 32),
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/library'),
+                  ),
+                ),
+                const Expanded(
+                  child: Center(
+                    child: Text("This exercise isn't available.",
+                        style: TextStyle(color: Colors.white70)),
+                  ),
+                ),
+              ]);
+            }
+            final exercise = matches.first;
 
             final levelColor = exercise.level == 'beginner'
                 ? Colors.greenAccent
@@ -58,9 +78,18 @@ class _ExerciseDetailsScreenState extends ConsumerState<ExerciseDetailsScreen> {
                               onPressed: () => context.pop(),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.more_vert,
+                              tooltip: 'Add to a program or workout',
+                              icon: const Icon(Icons.playlist_add,
                                   color: Colors.white),
-                              onPressed: () {},
+                              onPressed: () => showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => RoutineSelectorBottomSheet(
+                                  exerciseId: exercise.id,
+                                  exerciseName: exercise.name,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -119,6 +148,7 @@ class _ExerciseDetailsScreenState extends ConsumerState<ExerciseDetailsScreen> {
                               ],
                             ),
                             const SizedBox(height: 32),
+                            ExerciseProgressSection(exerciseId: exercise.id),
                             const Text('INSTRUCTIONS',
                                 style: TextStyle(
                                     color: AppColors.textPrimary,
@@ -196,11 +226,11 @@ class _ExerciseDetailsScreenState extends ConsumerState<ExerciseDetailsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color:
-            isPrimary ? AppColors.accent.withOpacity(0.1) : AppColors.surface,
+            isPrimary ? AppColors.accent.withValues(alpha: 0.1) : AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
             color: isPrimary
-                ? AppColors.accent.withOpacity(0.5)
+                ? AppColors.accent.withValues(alpha: 0.5)
                 : AppColors.border),
       ),
       child: Text(

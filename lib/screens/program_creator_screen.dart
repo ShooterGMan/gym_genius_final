@@ -26,16 +26,22 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
   Difficulty _difficulty = Difficulty.intermediate;
   List<WorkoutRoutine> _routines = [];
   bool _isInit = false;
+  Program? _editing;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_isInit) {
-      if (widget.editProgramId != null) {
-        final p = ref
-            .read(programProvider)
-            .customPrograms
-            .firstWhere((p) => p.id == widget.editProgramId);
+      final matches = widget.editProgramId == null
+          ? const <Program>[]
+          : ref
+              .read(programProvider)
+              .customPrograms
+              .where((p) => p.id == widget.editProgramId)
+              .toList();
+      if (matches.isNotEmpty) {
+        final p = matches.first;
+        _editing = p;
         _nameController.text = p.name;
         _descriptionController.text = p.description;
         _difficulty = p.difficulty;
@@ -45,7 +51,12 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
         _routines.add(WorkoutRoutine(
           id: const Uuid().v4(),
           name: 'Workout 1',
-          exercises: [],
+          exercises: [
+            // "Create new program" from an exercise's sheet starts with it.
+            if (widget.initialExerciseId != null &&
+                widget.initialExerciseId!.isNotEmpty)
+              PlannedExercise(exerciseId: widget.initialExerciseId!),
+          ],
         ));
       }
       _isInit = true;
@@ -191,8 +202,9 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
         Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: TextEditingController(text: routine.name),
+              child: TextFormField(
+                key: ValueKey(routine.id),
+                initialValue: routine.name,
                 onChanged: (v) => setState(() {
                   final updatedRoutines = List<WorkoutRoutine>.from(_routines);
                   updatedRoutines[idx] = WorkoutRoutine(
@@ -309,7 +321,7 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
               const SizedBox(height: 8),
               // Sets and Reps inputs
               Row(children: [
-                _miniInput("Sets", planned.sets.toString(), (v) {
+                _miniInput("Sets", planned.sets.toString(), ValueKey('${routine.id}_${exerciseIndex}_sets'), (v) {
                   setState(() {
                     final updatedExercises =
                         List<PlannedExercise>.from(routine.exercises);
@@ -331,7 +343,7 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
                   });
                 }),
                 const SizedBox(width: 12),
-                _miniInput("Reps", planned.reps, (v) {
+                _miniInput("Reps", planned.reps, ValueKey('${routine.id}_${exerciseIndex}_reps'), (v) {
                   setState(() {
                     final updatedExercises =
                         List<PlannedExercise>.from(routine.exercises);
@@ -359,7 +371,7 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
         // Add exercise button
         TextButton.icon(
             onPressed: () async {
-              final res = await context.push<String>('/workout/add');
+              final res = await context.push<String>('/pick-exercise');
               if (res != null && mounted) {
                 _addExerciseToDay(idx, res);
               }
@@ -371,8 +383,10 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
     );
   }
 
-  Widget _miniInput(String l, String v, Function(String) onTyped) => Expanded(
-      child: TextField(
+  Widget _miniInput(String l, String v, Key key, Function(String) onTyped) => Expanded(
+      child: TextFormField(
+          key: key,
+          initialValue: v,
           onChanged: onTyped,
           style: const TextStyle(color: AppColors.accent, fontSize: 12),
           decoration: InputDecoration(
@@ -380,9 +394,7 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
               labelStyle:
                   const TextStyle(fontSize: 10, color: AppColors.textSecondary),
               isDense: true,
-              border: InputBorder.none),
-          controller: TextEditingController(text: v)
-            ..selection = TextSelection.collapsed(offset: v.length)));
+              border: InputBorder.none)));
 
   void _save() {
     if (_nameController.text.trim().isEmpty) {
@@ -395,20 +407,39 @@ class _ProgramCreatorScreenState extends ConsumerState<ProgramCreatorScreen> {
       return;
     }
 
+    if (_routines.every((r) => r.exercises.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Add at least one exercise to a workout day."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // Drop empty days so they never become un-startable routines.
+    final routines = _routines.where((r) => r.exercises.isNotEmpty).toList();
+    final existing = _editing;
+
     final program = Program(
-      id: widget.editProgramId ?? const Uuid().v4(),
+      id: existing?.id ?? const Uuid().v4(),
       name: _nameController.text.trim(),
       description: _descriptionController.text.trim(),
-      coverImage: 'assets/workout_covers/workouts/strength_foundation.jpg',
+      // Keep the original cover/categories/equipment when editing (e.g. an
+      // imported program) instead of overwriting them with defaults.
+      coverImage: existing?.coverImage ??
+          'assets/workout_covers/workouts/strength_foundation.jpg',
+      customCoverImage: existing?.customCoverImage,
       difficulty: _difficulty,
-      categories: [WorkoutCategory.fullBody],
-      equipment: ['Bodyweight', 'Dumbbells'],
-      estimatedWeeks: 4,
-      routines: _routines,
+      categories: existing?.categories ?? [WorkoutCategory.fullBody],
+      equipment: existing?.equipment ?? const [],
+      estimatedWeeks: existing?.estimatedWeeks ?? 4,
+      routines: routines,
+      author: existing?.author,
       isCustom: true,
     );
 
-    if (widget.editProgramId != null) {
+    if (existing != null) {
       ref.read(programProvider.notifier).updateProgram(program);
     } else {
       ref.read(programProvider.notifier).createProgram(program);

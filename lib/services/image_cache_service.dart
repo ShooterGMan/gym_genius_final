@@ -28,11 +28,11 @@ class ImageCacheService {
   ];
 
   static const List<String> placeholderImages = [
-    'assets/placeholders/chest.avif',
-    'assets/placeholders/back.avif',
-    'assets/placeholders/legs.avif',
-    'assets/placeholders/full body.avif',
-    'assets/placeholders/cardio.avif',
+    'assets/placeholders/chest.jpg',
+    'assets/placeholders/back.jpg',
+    'assets/placeholders/legs.jpg',
+    'assets/placeholders/full_body.jpg',
+    'assets/placeholders/cardio.jpg',
   ];
 
   Future<void> preloadAllImages(BuildContext context) async {
@@ -49,6 +49,7 @@ class ImageCacheService {
       if (!_preloadedImages.contains(path)) {
         try {
           await rootBundle.load(path);
+          if (!context.mounted) return;
           final provider = AssetImage(path);
           await precacheImage(provider, context);
           _preloadedImages.add(path);
